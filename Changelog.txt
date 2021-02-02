@@ -1,0 +1,74 @@
+version 1.2.20
+- Add "IACRCloudRecordDataListener", It can return the current recorded data in real time.
+
+version 1.2.18
+- Fix some bugs of humming fingerprint.
+
+version 1.2.17
+- Fix NULL Poiner Exception Bug.
+
+version 1.2.15
+- Replace http with https for Login API.
+
+version 1.2.14
+- Adjusted the internal structure of sdk.
+
+version 1.2.13
+- Radio API add "device_id".
+
+version 1.2.12
+- Add "ACRCloudUtils.pcm2Wav" function, you can use it to
+-     encode PCM Data to WAV Data.
+
+version 1.2.11
+- optimize humming fingerprint.
+
+version 1.2.10
+- Reduced the size of the share library.
+
+version 1.2.9
+- Add function recognize with userParams.
+
+version 1.2.8
+- Limit the minimum length of humming audio.
+
+version 1.2.7
+- Fix recorder ByteArrayOutputStream OutOfMemoryError.
+
+version 1.2.6
+- Update IllegalThreadStateException.
+
+version 1.2.5
+- Optimize humming fingerprint.
+
+version 1.2.4
+- Optimize some Auto recognize parameters.
+
+version 1.2.3
+- Optimize http parameters.
+
+version 1.2.2
+- "recognize()" supports humming.
+
+version 1.2.1
+- support user's recorder.
+-    this.mConfig.recorderType = ACRCloudConfig.RecorderType.RECORDER_USER;
+-    this.mConfig.userRecorderEngine = new RecorderUserTest();
+
+version 1.2.0
+- Optimize fingerprint mode.
+
+version 1.1.2
+- Add humming recognition.
+
+version 1.1.1
+- Modify radio search function.
+
+version 1.1.0
+- Add radio search function and fixed some bugs.
+
+version 1.0.1
+- RecorderType add "USER" option, support user's pcm stream.
+
+version 1.0.0
+- init version.
