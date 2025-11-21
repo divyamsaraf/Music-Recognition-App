@@ -3,10 +3,11 @@ import { toast } from 'sonner'
 
 interface UseRecorderProps {
     onRecordingComplete: (blob: Blob) => void
+    onDataAvailable?: (blob: Blob) => void
     maxDuration?: number // in seconds
 }
 
-export function useRecorder({ onRecordingComplete, maxDuration = 9 }: UseRecorderProps) {
+export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration = 20 }: UseRecorderProps) {
     const [isRecording, setIsRecording] = useState(false)
     const [duration, setDuration] = useState(0)
     const [audioLevel, setAudioLevel] = useState(0)
@@ -58,6 +59,7 @@ export function useRecorder({ onRecordingComplete, maxDuration = 9 }: UseRecorde
             sourceRef.current = source
 
             // MediaRecorder
+            // Request data every 4 seconds (4000ms)
             const mediaRecorder = new MediaRecorder(stream)
             mediaRecorderRef.current = mediaRecorder
             chunksRef.current = []
@@ -65,6 +67,10 @@ export function useRecorder({ onRecordingComplete, maxDuration = 9 }: UseRecorde
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     chunksRef.current.push(e.data)
+                    // Emit chunk for real-time processing if callback provided
+                    if (onDataAvailable) {
+                        onDataAvailable(e.data)
+                    }
                 }
             }
 
@@ -74,7 +80,8 @@ export function useRecorder({ onRecordingComplete, maxDuration = 9 }: UseRecorde
                 cleanup()
             }
 
-            mediaRecorder.start()
+            // Start recording and request data every 4 seconds
+            mediaRecorder.start(4000)
             setIsRecording(true)
 
             // Timer for duration
@@ -102,7 +109,7 @@ export function useRecorder({ onRecordingComplete, maxDuration = 9 }: UseRecorde
             console.error('Error starting recording:', error)
             toast.error('Could not access microphone')
         }
-    }, [maxDuration, onRecordingComplete, cleanup, stopRecording])
+    }, [maxDuration, onRecordingComplete, onDataAvailable, cleanup, stopRecording])
 
     return {
         isRecording,

@@ -26,16 +26,18 @@ export default function HistoryPage() {
     const router = useRouter()
 
     const fetchHistory = useCallback(async () => {
+        if (!supabase) return
         try {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) {
-                router.push('/')
+                setLoading(false)
                 return
             }
 
             const { data, error } = await supabase
                 .from('history')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -49,10 +51,12 @@ export default function HistoryPage() {
     }, [supabase, router])
 
     useEffect(() => {
+        if (!supabase) return
         fetchHistory()
-    }, [fetchHistory])
+    }, [fetchHistory, supabase])
 
-    const deleteItem = async (id: string) => {
+    const handleDelete = async (id: string) => {
+        if (!supabase) return
         try {
             const { error } = await supabase
                 .from('history')
@@ -62,7 +66,7 @@ export default function HistoryPage() {
             if (error) throw error
             setHistory(history.filter(item => item.id !== id))
             toast.success('Item deleted')
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete item')
         }
     }
@@ -82,7 +86,7 @@ export default function HistoryPage() {
             if (error) throw error
             setHistory([])
             toast.success('History cleared')
-        } catch (error) {
+        } catch {
             toast.error('Failed to clear history')
         }
     }
@@ -132,7 +136,7 @@ export default function HistoryPage() {
                                                 <ExternalLink className="h-4 w-4 text-[#1DB954]" />
                                             </Button>
                                         )}
-                                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => deleteItem(item.id)}>
+                                        <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDelete(item.id)}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </div>

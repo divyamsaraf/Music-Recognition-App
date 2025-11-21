@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
                 album: music.album?.name,
                 spotify_id: music.external_metadata?.spotify?.track?.id,
                 youtube_id: music.external_metadata?.youtube?.vid,
+                album_art_url: music.external_metadata?.spotify?.album?.images?.[0]?.url || null,
             })
         }
 

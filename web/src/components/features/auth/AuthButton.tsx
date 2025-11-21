@@ -15,36 +15,55 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function AuthButton() {
-    const [user, setUser] = useState<User | null>(null)
     const supabase = createBrowserSupabaseClient()
+    const [user, setUser] = useState<User | null>(null)
     const router = useRouter()
 
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+        if (!supabase) return
+
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            setUser(user)
+        }
+
+        getUser()
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null)
         })
 
         return () => subscription.unsubscribe()
     }, [supabase])
 
-    const handleLogin = async () => {
-        await supabase.auth.signInWithOAuth({
+    const handleSignIn = async () => {
+        if (!supabase) return
+        const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
                 redirectTo: `${location.origin}/auth/callback`,
             },
         })
+        if (error) {
+            console.error('Auth error:', error)
+            // You might want to show a toast here
+            alert(`Login failed: ${error.message}`)
+        }
     }
 
-    const handleLogout = async () => {
+    const handleSignOut = async () => {
+        if (!supabase) return
         await supabase.auth.signOut()
+        setUser(null)
         router.refresh()
     }
 
+    if (!supabase) return null
+
     if (!user) {
         return (
-            <Button onClick={handleLogin} variant="outline">
-                Sign In
+            <Button onClick={handleSignIn} variant="outline" className="border-white/10 hover:bg-white/10 text-white">
+                Login / Sign Up
             </Button>
         )
     }
@@ -63,7 +82,7 @@ export function AuthButton() {
                 <DropdownMenuItem onClick={() => router.push('/history')}>
                     History
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
+                <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Log out
                 </DropdownMenuItem>
