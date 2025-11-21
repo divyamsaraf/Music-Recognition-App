@@ -1,77 +1,101 @@
-import { useRecognitionStore } from '@/store/useRecognitionStore'
-import { getHistoryCookie, setHistoryCookie, clearHistoryCookie } from '@/lib/cookies'
+import { renderHook, act } from '@testing-library/react'
+import { useRecognitionStore } from './useRecognitionStore'
+import * as storage from '@/lib/storage'
 
-// Mock the cookie part since jsdom handles cookies but we want to ensure our wrapper works
-// Actually jsdom's document.cookie works fine, so we can test integration directly.
+// Mock the storage module
+jest.mock('@/lib/storage', () => ({
+    getHistory: jest.fn(),
+    saveHistory: jest.fn(),
+    clearHistoryStorage: jest.fn(),
+}))
 
-describe('Recognition Store & Cookies', () => {
+describe('useRecognitionStore', () => {
+    const mockMusic = {
+        title: 'Test Song',
+        artists: [{ name: 'Test Artist' }],
+        album: { name: 'Test Album' },
+        external_metadata: {
+            spotify: {
+                track: { id: 'spotify-id' },
+                album: { images: [{ url: 'image-url' }] }
+            },
+            youtube: { vid: 'youtube-id' }
+        }
+    }
+
     beforeEach(() => {
-        // Clear cookies and store before each test
-        document.cookie = 'soundlens_history=; path=/; max-age=0'
+        jest.clearAllMocks()
         useRecognitionStore.getState().reset()
         useRecognitionStore.getState().clearHistory()
+            // Default mock return value
+            ; (storage.getHistory as jest.Mock).mockReturnValue([])
     })
 
-    it('should initialize with empty history', () => {
-        const { history } = useRecognitionStore.getState()
-        expect(history).toEqual([])
+    it('should initialize with default values', () => {
+        const { result } = renderHook(() => useRecognitionStore())
+        expect(result.current.history).toEqual([])
+        expect(result.current.isLoading).toBe(false)
+        expect(result.current.error).toBeNull()
+        expect(result.current.result).toBeNull()
     })
 
-    it('should add recognition to history and persist to cookies', () => {
-        const song = {
-            title: 'Test Song',
-            artists: [{ name: 'Test Artist' }],
-            timestamp: Date.now()
-        }
+    it('should add item to history and save to storage', () => {
+        const { result } = renderHook(() => useRecognitionStore())
 
-        useRecognitionStore.getState().addToHistory(song)
+        act(() => {
+            result.current.addToHistory(mockMusic)
+        })
 
-        const { history } = useRecognitionStore.getState()
-        expect(history).toHaveLength(1)
-        expect(history[0].title).toBe('Test Song')
-
-        // Check cookie
-        const cookieHistory = getHistoryCookie()
-        expect(cookieHistory).toHaveLength(1)
-        expect(cookieHistory[0].title).toBe('Test Song')
+        expect(result.current.history).toHaveLength(1)
+        expect(result.current.history[0]).toMatchObject({
+            title: mockMusic.title,
+            artists: mockMusic.artists
+        })
+        expect(storage.saveHistory).toHaveBeenCalledWith(expect.any(Array))
     })
 
-    it('should not add duplicate songs within short timeframe', () => {
-        const song = {
-            title: 'Duplicate Song',
-            artists: [{ name: 'Artist' }],
-        }
+    it('should not add duplicate items within debounce period', () => {
+        const { result } = renderHook(() => useRecognitionStore())
 
-        useRecognitionStore.getState().addToHistory(song)
-        useRecognitionStore.getState().addToHistory(song) // Immediate duplicate
+            // Mock getHistory to return the item we just added (simulating storage update)
+            ; (storage.getHistory as jest.Mock).mockImplementation(() => result.current.history)
 
-        const { history } = useRecognitionStore.getState()
-        expect(history).toHaveLength(1)
+        act(() => {
+            result.current.addToHistory(mockMusic)
+        })
+
+        expect(result.current.history).toHaveLength(1)
+
+        act(() => {
+            result.current.addToHistory(mockMusic)
+        })
+
+        expect(result.current.history).toHaveLength(1)
+        expect(storage.saveHistory).toHaveBeenCalledTimes(1)
     })
 
-    it('should load history from cookies on initialization', () => {
-        const preExistingHistory = [
-            { id: '1', title: 'Old Song', artists: [{ name: 'Old Artist' }], timestamp: Date.now() }
-        ]
-        setHistoryCookie(preExistingHistory)
+    it('should load history from storage', () => {
+        const mockHistory = [{ ...mockMusic, id: '1', timestamp: 123 }]
+            ; (storage.getHistory as jest.Mock).mockReturnValue(mockHistory)
 
-        useRecognitionStore.getState().loadHistory()
+        const { result } = renderHook(() => useRecognitionStore())
 
-        const { history } = useRecognitionStore.getState()
-        expect(history).toHaveLength(1)
-        expect(history[0].title).toBe('Old Song')
+        act(() => {
+            result.current.loadHistory()
+        })
+
+        expect(result.current.history).toEqual(mockHistory)
     })
 
-    it('should clear history from store and cookies', () => {
-        const song = { title: 'To Delete', artists: [{ name: 'Artist' }] }
-        useRecognitionStore.getState().addToHistory(song)
+    it('should clear history', () => {
+        const { result } = renderHook(() => useRecognitionStore())
 
-        useRecognitionStore.getState().clearHistory()
+        act(() => {
+            result.current.addToHistory(mockMusic)
+            result.current.clearHistory()
+        })
 
-        const { history } = useRecognitionStore.getState()
-        expect(history).toEqual([])
-
-        const cookieHistory = getHistoryCookie()
-        expect(cookieHistory).toEqual([])
+        expect(result.current.history).toEqual([])
+        expect(storage.clearHistoryStorage).toHaveBeenCalled()
     })
 })

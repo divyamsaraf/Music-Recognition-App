@@ -4,11 +4,11 @@ import { Music2, Clock, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { CookieHistoryItem } from '@/lib/cookies'
+import { HistoryItem } from '@/lib/storage'
 import { motion } from 'framer-motion'
 
 interface HistoryPreviewProps {
-    history: CookieHistoryItem[]
+    history: HistoryItem[]
     onOpenHistory: () => void
 }
 
