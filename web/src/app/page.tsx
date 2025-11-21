@@ -154,7 +154,7 @@ export default function Home() {
                       className="w-full max-w-md mt-8"
                     >
                       <div className="flex items-center gap-2 text-white/40 mb-4 text-xs uppercase tracking-widest font-semibold">
-                        <Clock className="w-3 h-3" /> Recent Discoveries
+                        <Clock className="w-3 h-3" /> Recent Recognitions
                       </div>
                       <div className="grid grid-cols-1 gap-2">
                         {recentHistory.map((item) => (

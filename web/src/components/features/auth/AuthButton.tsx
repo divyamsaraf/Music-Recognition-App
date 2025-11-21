@@ -38,16 +38,17 @@ export function AuthButton() {
 
     const handleSignIn = async () => {
         if (!supabase) return
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${location.origin}/auth/callback`,
-            },
-        })
-        if (error) {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${location.origin}/auth/callback`,
+                },
+            })
+            if (error) throw error
+        } catch (error: any) {
             console.error('Auth error:', error)
-            // You might want to show a toast here
-            alert(`Login failed: ${error.message}`)
+            alert(error.message || 'Failed to sign in')
         }
     }
 

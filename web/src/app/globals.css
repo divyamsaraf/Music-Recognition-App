@@ -116,7 +116,21 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Hide Next.js DevTools Indicator */
+body>[data-nextjs-toast] {
+  display: none !important;
+}
+
+body>[data-nextjs-toast-errors-parent] {
+  display: none !important;
+}
+
+nextjs-portal {
+  display: none !important;
 }
