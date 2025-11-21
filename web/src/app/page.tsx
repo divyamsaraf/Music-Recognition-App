@@ -7,41 +7,33 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Music2, AlertCircle, Calendar, Disc, Globe, Share2, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { HistoryPreview } from '@/components/features/history/HistoryPreview'
+import { HistoryModal } from '@/components/features/history/HistoryModal'
+
 import { Navbar } from '@/components/layout/Navbar'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
-import { formatDistanceToNow } from 'date-fns'
-
-interface HistoryItem {
-  id: string
-  title: string
-  artist: string
-  album_art_url: string | null
-  created_at: string
-}
 
 export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const { result, error, setMusic, setError, reset } = useRecognitionStore()
-  const [recentHistory, setRecentHistory] = useState<HistoryItem[]>([])
+  const { result, error, setMusic, setError, reset, history, loadHistory } = useRecognitionStore()
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const supabase = createBrowserSupabaseClient()
 
-  // Fetch recent history for preview
+  // Load history from cookies on mount
   useEffect(() => {
-    const fetchRecent = async () => {
+    loadHistory()
+  }, [loadHistory])
+
+  // Sync with Supabase if logged in (optional, for now we rely on cookies for anonymous)
+  useEffect(() => {
+    const syncHistory = async () => {
       if (!supabase) return
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data } = await supabase
-          .from('history')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5)
-        if (data) setRecentHistory(data)
-      }
+      // Logic to sync cookie history to Supabase could go here
+      // For now we just load cookies as requested for anonymous persistence
     }
-    fetchRecent()
-  }, [])
+    syncHistory()
+  }, [supabase])
 
   // Handle real-time chunks
   const handleDataAvailable = async (blob: Blob) => {
@@ -107,11 +99,11 @@ export default function Home() {
   const music = result?.metadata?.music?.[0]
 
   return (
-    <main className="flex min-h-screen flex-col relative overflow-hidden">
+    <main className="flex min-h-screen flex-col relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white selection:bg-blue-500/30">
       <Navbar />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-24 pt-20">
-        <div className="z-10 max-w-5xl w-full items-center justify-center font-mono text-sm flex flex-col gap-12">
+      <div className="flex-1 flex flex-col items-center pt-32 pb-20 px-4 md:px-8">
+        <div className="z-10 max-w-5xl w-full flex flex-col items-center gap-16">
 
           {/* Hero Text - Fade out when result found */}
           <AnimatePresence>
@@ -120,12 +112,12 @@ export default function Home() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="text-center space-y-4"
+                className="text-center space-y-6 max-w-3xl mx-auto"
               >
-                <h1 className="text-4xl md:text-7xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-xy">
+                <h1 className="text-5xl md:text-7xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
                   SoundLens
                 </h1>
-                <p className="text-white/60 text-lg md:text-xl max-w-[600px] mx-auto font-light">
+                <p className="text-lg md:text-2xl text-white/60 font-light leading-relaxed max-w-2xl mx-auto">
                   Record a moment. Discover the music behind it.
                 </p>
               </motion.div>
@@ -133,51 +125,23 @@ export default function Home() {
           </AnimatePresence>
 
           {/* Recorder Button - Center Stage */}
-          <div className="flex flex-col items-center gap-8 w-full max-w-2xl relative min-h-[300px] justify-center">
+          <div className="flex flex-col items-center gap-10 w-full max-w-2xl relative min-h-[300px] justify-start">
             <AnimatePresence mode="wait">
               {!result ? (
                 <motion.div
                   key="recorder"
                   exit={{ scale: 0.8, opacity: 0 }}
-                  className="z-20 flex flex-col items-center gap-12"
+                  className="z-20 flex flex-col items-center gap-12 w-full"
                 >
                   <RecorderButton
                     onRecordingComplete={handleRecordingComplete}
                     onDataAvailable={handleDataAvailable}
                   />
 
-                  {/* Recent History Preview */}
-                  {recentHistory.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="w-full max-w-md mt-8"
-                    >
-                      <div className="flex items-center gap-2 text-white/40 mb-4 text-xs uppercase tracking-widest font-semibold">
-                        <Clock className="w-3 h-3" /> Recent Recognitions
-                      </div>
-                      <div className="grid grid-cols-1 gap-2">
-                        {recentHistory.map((item) => (
-                          <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors cursor-pointer border border-white/5">
-                            <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center overflow-hidden">
-                              {item.album_art_url ? (
-                                <img src={item.album_art_url} alt={item.title} className="w-full h-full object-cover" />
-                              ) : (
-                                <Music2 className="w-4 h-4 text-slate-500" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-white text-sm truncate">{item.title}</h4>
-                              <p className="text-xs text-white/40 truncate">{item.artist}</p>
-                            </div>
-                            <span className="text-[10px] text-white/20">
-                              {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
+                  {/* Recent History Preview - Positioned below recorder with better spacing */}
+                  <div className="w-full pt-4">
+                    <HistoryPreview history={history} onOpenHistory={() => setIsHistoryOpen(true)} />
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
@@ -293,6 +257,7 @@ export default function Home() {
 
         </div>
       </div>
+      <HistoryModal open={isHistoryOpen} onOpenChange={setIsHistoryOpen} />
     </main>
   )
 }

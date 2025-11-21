@@ -13,10 +13,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AuthModal } from './AuthModal'
 
 export function AuthButton() {
     const supabase = createBrowserSupabaseClient()
     const [user, setUser] = useState<User | null>(null)
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -36,22 +38,6 @@ export function AuthButton() {
         return () => subscription.unsubscribe()
     }, [supabase])
 
-    const handleSignIn = async () => {
-        if (!supabase) return
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: `${location.origin}/auth/callback`,
-                },
-            })
-            if (error) throw error
-        } catch (error: any) {
-            console.error('Auth error:', error)
-            alert(error.message || 'Failed to sign in')
-        }
-    }
-
     const handleSignOut = async () => {
         if (!supabase) return
         await supabase.auth.signOut()
@@ -63,9 +49,16 @@ export function AuthButton() {
 
     if (!user) {
         return (
-            <Button onClick={handleSignIn} variant="outline" className="border-white/10 hover:bg-white/10 text-white">
-                Login / Sign Up
-            </Button>
+            <>
+                <Button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    variant="outline"
+                    className="border-white/10 hover:bg-white/10 text-white"
+                >
+                    Login / Sign Up
+                </Button>
+                <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
+            </>
         )
     }
 

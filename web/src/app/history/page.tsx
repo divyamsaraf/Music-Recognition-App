@@ -72,6 +72,7 @@ export default function HistoryPage() {
     }
 
     const clearHistory = async () => {
+        if (!supabase) return
         if (!confirm('Are you sure you want to clear all history?')) return
 
         try {

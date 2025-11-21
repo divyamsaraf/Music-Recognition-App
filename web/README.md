@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SoundLens Web App
 
-## Getting Started
+## Auth & History Implementation Details
 
-First, run the development server:
+### Cookie Format
+We use a cookie named `soundlens_history` to persist recognition history for anonymous users.
+- **Name**: `soundlens_history`
+- **Value**: URL-encoded JSON string of `CookieHistoryItem[]`
+- **Max Age**: 1 year (31536000 seconds)
+- **Path**: `/`
+- **Secure**: Yes (in production)
+- **SameSite**: Strict
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**CookieHistoryItem Structure:**
+```typescript
+interface CookieHistoryItem {
+    id: string          // UUID
+    title: string
+    artists: { name: string }[]
+    timestamp: number   // Unix timestamp
+    external_metadata?: { ... } // Spotify/YouTube IDs and images
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Zustand Store API
+The `useRecognitionStore` manages the application state.
+- `loadHistory()`: Reads from the `soundlens_history` cookie and populates the store.
+- `addToHistory(music)`: Adds a new item to the store and updates the cookie. Includes logic to prevent duplicates (10s debounce).
+- `clearHistory()`: Clears both the store state and the cookie.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Manual Test Steps
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+#### 1. Anonymous History Persistence
+1. Open the app in a new incognito window.
+2. Record a song and wait for recognition.
+3. Verify the song appears in the "Recent Recognitions" horizontal scroll on the home page.
+4. Refresh the page.
+5. Verify the song is still present in the "Recent Recognitions" list.
+6. Open the "History" modal (via "See all" or Navbar).
+7. Verify the song is listed with correct metadata and album art.
 
-## Learn More
+#### 2. Auth Flow
+1. Click "Login / Sign Up" in the Navbar.
+2. Select "Sign Up" tab.
+3. Enter a valid email and password (min 8 chars).
+4. Click "Create Account".
+5. Verify success toast appears.
+6. Switch to "Login" tab and log in.
+7. Verify the "Login / Sign Up" button changes to a User Avatar.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### 3. Clear History
+1. Open History Modal.
+2. Click "Clear All".
+3. Confirm the dialog.
+4. Verify the list is empty and the "Recent Recognitions" section on the home page disappears.
+5. Refresh the page and verify history remains empty.

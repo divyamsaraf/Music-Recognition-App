@@ -27,35 +27,27 @@ export function RecorderButton({ onRecordingComplete, onDataAvailable }: Recorde
 
     return (
         <div className="relative flex items-center justify-center">
-            {/* Ripple Effects (Only when recording) */}
+            {/* Outer pulsing rings */}
             <AnimatePresence>
                 {isRecording && (
                     <>
-                        {[1, 2, 3].map((i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0.5, scale: 1 }}
-                                animate={{ opacity: 0, scale: 2.5 }}
-                                transition={{
-                                    duration: 2,
-                                    repeat: Infinity,
-                                    delay: i * 0.4,
-                                    ease: "easeOut"
-                                }}
-                                className="absolute inset-0 rounded-full bg-blue-500/20 z-0"
-                            />
-                        ))}
-                        {/* Outer Glow */}
                         <motion.div
-                            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                            className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 blur-xl opacity-50 z-0"
+                            initial={{ scale: 1, opacity: 0.5 }}
+                            animate={{ scale: 2, opacity: 0 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                            className="absolute w-[140px] h-[140px] md:w-[160px] md:h-[160px] rounded-full bg-blue-500/20"
+                        />
+                        <motion.div
+                            initial={{ scale: 1, opacity: 0.5 }}
+                            animate={{ scale: 1.5, opacity: 0 }}
+                            transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                            className="absolute w-[140px] h-[140px] md:w-[160px] md:h-[160px] rounded-full bg-blue-500/10"
                         />
                     </>
                 )}
             </AnimatePresence>
 
-            {/* Main Button */}
+            {/* Main button */}
             <motion.button
                 onClick={handleToggle}
                 whileHover={{ scale: 1.05 }}

@@ -43,9 +43,9 @@ export default function ResultPage() {
     const youtubeId = music.external_metadata?.youtube?.vid
 
     return (
-        <main className="min-h-screen p-4 md:p-8 bg-gradient-to-b from-background to-secondary/20 flex flex-col items-center">
+        <main className="min-h-screen p-6 md:p-12 bg-gradient-to-b from-background to-secondary/20 flex flex-col items-center">
             <div className="w-full max-w-2xl space-y-8">
-                <Button variant="ghost" onClick={() => router.push('/')} className="mb-4">
+                <Button variant="ghost" onClick={() => router.push('/')} className="mb-4 hover:bg-white/10">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recorder
                 </Button>
 
@@ -55,7 +55,7 @@ export default function ResultPage() {
                     transition={{ duration: 0.5 }}
                 >
                     <Card className="overflow-hidden border-none shadow-2xl bg-card/50 backdrop-blur-xl">
-                        <CardHeader className="text-center pb-2">
+                        <CardHeader className="text-center pb-2 px-8 pt-8">
                             <div className="mx-auto w-32 h-32 bg-primary/10 rounded-full flex items-center justify-center mb-4 animate-pulse">
                                 <Music className="h-16 w-16 text-primary" />
                             </div>
@@ -63,22 +63,22 @@ export default function ResultPage() {
                             <p className="text-xl text-muted-foreground">{artist}</p>
                             {album && <p className="text-sm text-muted-foreground/80">{album}</p>}
                         </CardHeader>
-                        <CardContent className="space-y-6 pt-6">
+                        <CardContent className="space-y-6 pt-6 px-8 pb-8">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {spotifyId && (
                                     <Button
-                                        className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-white"
+                                        className="w-full bg-[#1DB954] hover:bg-[#1ed760] text-white h-12 text-lg"
                                         onClick={() => window.open(`https://open.spotify.com/track/${spotifyId}`, '_blank')}
                                     >
-                                        <ExternalLink className="mr-2 h-4 w-4" /> Play on Spotify
+                                        <ExternalLink className="mr-2 h-5 w-5" /> Play on Spotify
                                     </Button>
                                 )}
                                 {youtubeId && (
                                     <Button
-                                        className="w-full bg-[#FF0000] hover:bg-[#ff3333] text-white"
+                                        className="w-full bg-[#FF0000] hover:bg-[#ff3333] text-white h-12 text-lg"
                                         onClick={() => window.open(`https://www.youtube.com/watch?v=${youtubeId}`, '_blank')}
                                     >
-                                        <ExternalLink className="mr-2 h-4 w-4" /> Watch on YouTube
+                                        <ExternalLink className="mr-2 h-5 w-5" /> Watch on YouTube
                                     </Button>
                                 )}
                             </div>
