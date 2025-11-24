@@ -5,9 +5,11 @@ interface UseRecorderProps {
     onRecordingComplete: (blob: Blob) => void
     onDataAvailable?: (blob: Blob) => void
     maxDuration?: number // in seconds
+    timeslice?: number // in ms
+    silenceThreshold?: number
 }
 
-export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration = 20 }: UseRecorderProps) {
+export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration = 20, timeslice = 2000, silenceThreshold = 10 }: UseRecorderProps) {
     const [isRecording, setIsRecording] = useState(false)
     const [duration, setDuration] = useState(0)
     const [audioLevel, setAudioLevel] = useState(0)
@@ -20,10 +22,13 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
     const analyserRef = useRef<AnalyserNode | null>(null)
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
 
+    const maxAudioLevelRef = useRef(0)
+
     const cleanup = useCallback(() => {
         setIsRecording(false)
         setDuration(0)
         setAudioLevel(0)
+        maxAudioLevelRef.current = 0
 
         if (timerRef.current) clearInterval(timerRef.current)
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
@@ -59,17 +64,24 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
             sourceRef.current = source
 
             // MediaRecorder
-            // Request data every 4 seconds (4000ms)
             const mediaRecorder = new MediaRecorder(stream)
             mediaRecorderRef.current = mediaRecorder
             chunksRef.current = []
+            maxAudioLevelRef.current = 0
 
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     chunksRef.current.push(e.data)
                     // Emit chunk for real-time processing if callback provided
                     if (onDataAvailable) {
-                        onDataAvailable(e.data)
+                        // Only emit if we detected sound above threshold
+                        if (maxAudioLevelRef.current > (silenceThreshold || 10)) {
+                            onDataAvailable(e.data)
+                        } else {
+                            console.log('Skipping chunk: Silence detected', maxAudioLevelRef.current)
+                        }
+                        // Reset max level for next chunk
+                        maxAudioLevelRef.current = 0
                     }
                 }
             }
@@ -80,8 +92,8 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
                 cleanup()
             }
 
-            // Start recording and request data every 4 seconds
-            mediaRecorder.start(4000)
+            // Start recording and request data every timeslice
+            mediaRecorder.start(timeslice)
             setIsRecording(true)
 
             // Timer for duration
@@ -101,6 +113,12 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
                 analyserRef.current.getByteFrequencyData(dataArray)
                 const average = dataArray.reduce((a, b) => a + b) / dataArray.length
                 setAudioLevel(average)
+
+                // Track max level
+                if (average > maxAudioLevelRef.current) {
+                    maxAudioLevelRef.current = average
+                }
+
                 animationFrameRef.current = requestAnimationFrame(updateLevel)
             }
             updateLevel()
@@ -109,7 +127,7 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
             console.error('Error starting recording:', error)
             toast.error('Could not access microphone')
         }
-    }, [maxDuration, onRecordingComplete, onDataAvailable, cleanup, stopRecording])
+    }, [maxDuration, timeslice, onRecordingComplete, onDataAvailable, cleanup, stopRecording])
 
     return {
         isRecording,

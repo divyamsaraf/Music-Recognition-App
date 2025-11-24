@@ -1,8 +1,9 @@
 'use client'
 
 import { RecorderButton } from '@/components/features/recorder'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRecognitionStore } from '@/store/useRecognitionStore'
+import { useRecorder } from '@/hooks/useRecorder'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertCircle } from 'lucide-react'
 import { HistoryPreview } from '@/components/features/history/HistoryPreview'
@@ -17,6 +18,7 @@ export default function Home() {
   const { result, error, setMusic, setError, reset, history, loadHistory } = useRecognitionStore()
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const supabase = createBrowserSupabaseClient()
+  const accumulatedChunksRef = useRef<Blob[]>([])
 
   // Load history from cookies on mount
   useEffect(() => {
@@ -35,13 +37,28 @@ export default function Home() {
   }, [supabase])
 
   // Handle real-time chunks
-  const handleDataAvailable = async (blob: Blob) => {
-    if (isAnalyzing || result) return
+  const isRequestPending = useRef(false)
+
+  const handleDataAvailable = async (chunk: Blob) => {
+    if (result) return
+
+    // Accumulate chunks
+    accumulatedChunksRef.current.push(chunk)
+
+    // Skip if a request is already in progress
+    if (isRequestPending.current) {
+      console.log('Skipping chunk, request pending')
+      return
+    }
+
+    const accumulatedBlob = new Blob(accumulatedChunksRef.current, { type: 'audio/webm' })
 
     setIsAnalyzing(true)
+    isRequestPending.current = true
+
     try {
       const formData = new FormData()
-      formData.append('audio', blob)
+      formData.append('audio', accumulatedBlob)
 
       const response = await fetch('/api/recognize', {
         method: 'POST',
@@ -53,15 +70,20 @@ export default function Home() {
       if (response.ok && data.metadata?.music?.length > 0) {
         const music = data.metadata.music[0]
         setMusic(music)
+        stopRecording() // Stop immediately on match
       }
     } catch (error) {
       console.error('Recognition error (chunk):', error)
     } finally {
       setIsAnalyzing(false)
+      isRequestPending.current = false
     }
   }
 
   const handleRecordingComplete = async (blob: Blob) => {
+    // Reset chunks on complete
+    accumulatedChunksRef.current = []
+
     if (result) return
 
     setIsAnalyzing(true)
@@ -87,6 +109,24 @@ export default function Home() {
       setError('Failed to process audio. Please check your connection.')
     } finally {
       setIsAnalyzing(false)
+    }
+  }
+
+  const { isRecording, startRecording, stopRecording, audioLevel } = useRecorder({
+    onRecordingComplete: handleRecordingComplete,
+    onDataAvailable: handleDataAvailable,
+    maxDuration: 20,
+    timeslice: 2000, // Check every 2 seconds
+    silenceThreshold: 15 // Skip chunks with average volume below 15 (0-255 range)
+  })
+
+  const handleToggle = () => {
+    if (isRecording) {
+      stopRecording()
+    } else {
+      reset()
+      accumulatedChunksRef.current = []
+      startRecording()
     }
   }
 
@@ -131,8 +171,9 @@ export default function Home() {
                   className="z-20 flex flex-col items-center gap-12 w-full"
                 >
                   <RecorderButton
-                    onRecordingComplete={handleRecordingComplete}
-                    onDataAvailable={handleDataAvailable}
+                    isRecording={isRecording}
+                    onToggle={handleToggle}
+                    audioLevel={audioLevel}
                   />
 
                   {/* Recent History Preview - Positioned below recorder with better spacing */}

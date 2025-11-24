@@ -2,29 +2,14 @@
 
 import { Mic, Square } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useRecorder } from '@/hooks/useRecorder'
 import { cn } from '@/lib/utils'
-
 interface RecorderButtonProps {
-    onRecordingComplete: (blob: Blob) => void
-    onDataAvailable: (blob: Blob) => void
+    isRecording: boolean
+    onToggle: () => void
+    audioLevel?: number
 }
 
-export function RecorderButton({ onRecordingComplete, onDataAvailable }: RecorderButtonProps) {
-    const { isRecording, startRecording, stopRecording } = useRecorder({
-        onRecordingComplete,
-        onDataAvailable,
-        maxDuration: 20
-    })
-
-    const handleToggle = () => {
-        if (isRecording) {
-            stopRecording()
-        } else {
-            startRecording()
-        }
-    }
-
+export function RecorderButton({ isRecording, onToggle, audioLevel = 0 }: RecorderButtonProps) {
     return (
         <div className="relative flex items-center justify-center">
             {/* Outer pulsing rings */}
@@ -33,14 +18,20 @@ export function RecorderButton({ onRecordingComplete, onDataAvailable }: Recorde
                     <>
                         <motion.div
                             initial={{ scale: 1, opacity: 0.5 }}
-                            animate={{ scale: 2, opacity: 0 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                            animate={{
+                                scale: audioLevel > 15 ? 2 + (audioLevel / 100) : 1.2,
+                                opacity: audioLevel > 15 ? 0 : 0.2
+                            }}
+                            transition={{ duration: audioLevel > 15 ? 2 : 3, repeat: Infinity, ease: "easeOut" }}
                             className="absolute w-[140px] h-[140px] md:w-[160px] md:h-[160px] rounded-full bg-blue-500/20"
                         />
                         <motion.div
                             initial={{ scale: 1, opacity: 0.5 }}
-                            animate={{ scale: 1.5, opacity: 0 }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                            animate={{
+                                scale: audioLevel > 15 ? 1.5 + (audioLevel / 100) : 1.1,
+                                opacity: audioLevel > 15 ? 0 : 0.1
+                            }}
+                            transition={{ duration: audioLevel > 15 ? 2 : 3, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
                             className="absolute w-[140px] h-[140px] md:w-[160px] md:h-[160px] rounded-full bg-blue-500/10"
                         />
                     </>
@@ -49,7 +40,7 @@ export function RecorderButton({ onRecordingComplete, onDataAvailable }: Recorde
 
             {/* Main button */}
             <motion.button
-                onClick={handleToggle}
+                onClick={onToggle}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 animate={{
