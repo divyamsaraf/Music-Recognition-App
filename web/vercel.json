@@ -1,6 +1,18 @@
 {
-    "framework": "nextjs",
-    "buildCommand": "next build",
-    "installCommand": "npm install",
-    "outputDirectory": ".next"
+    "builds": [
+        {
+            "src": "api/**/*.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "package.json",
+            "use": "@vercel/next"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/recognize-py",
+            "dest": "/api/recognize.py"
+        }
+    ]
 }

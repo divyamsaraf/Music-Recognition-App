@@ -1,0 +1,3 @@
+acrcloud
+requests
+python-multipart
