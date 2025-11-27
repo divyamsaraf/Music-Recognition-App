@@ -4,18 +4,45 @@ import { getHistory, saveHistory, clearHistoryStorage, HistoryItem } from '@/lib
 export interface Music {
     title?: string
     artists?: Array<{ name: string }>
-    album?: { name: string }
+    album?: {
+        name: string
+        cover?: string
+        release_date?: string
+        covers?: {
+            small?: string
+            medium?: string
+            large?: string
+        }
+    }
     external_metadata?: {
         spotify?: {
             track: { id: string }
             album: { images: Array<{ url: string }> }
         }
-        youtube?: { vid: string }
+        youtube?: {
+            vid: string
+        }
+        deezer?: {
+            track: { id: string }
+        }
+        applemusic?: {
+            track: { id: string }
+        }
     }
     score?: number
     release_date?: string
-    genres?: Array<{ name: string }>
+    genres?: Array<{ name: string }> | string[]
     label?: string
+    contributors?: Array<{
+        name: string
+        roles: string[]
+    }>
+    works?: Array<{
+        contributors: Array<{
+            name: string
+            roles: string[]
+        }>
+    }>
 }
 
 interface RecognitionResult {

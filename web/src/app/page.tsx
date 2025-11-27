@@ -6,6 +6,7 @@ import { useRecognitionStore } from '@/store/useRecognitionStore'
 import { useRecorder } from '@/hooks/useRecorder'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { HistoryPreview } from '@/components/features/history/HistoryPreview'
 import { HistoryModal } from '@/components/features/history/HistoryModal'
 import { ResultCard } from '@/components/features/result/ResultCard'
@@ -42,8 +43,9 @@ export default function Home() {
   const handleDataAvailable = async (chunk: Blob) => {
     if (result) return
 
-    // Accumulate chunks
-    accumulatedChunksRef.current.push(chunk)
+    // Smart Staged Logic: The hook now sends the FULL accumulated blob at 4s, 8s, 12s.
+    // We don't need to accumulate chunks manually anymore.
+    const accumulatedBlob = chunk
 
     // Skip if a request is already in progress
     if (isRequestPending.current) {
@@ -51,16 +53,15 @@ export default function Home() {
       return
     }
 
-    const accumulatedBlob = new Blob(accumulatedChunksRef.current, { type: 'audio/webm' })
-
     setIsAnalyzing(true)
     isRequestPending.current = true
 
     try {
+      console.log(`[Page] Sending request with blob size: ${accumulatedBlob.size} bytes`)
       const formData = new FormData()
       formData.append('audio', accumulatedBlob)
 
-      const response = await fetch('/api/recognize-py', {
+      const response = await fetch('/api/recognize_py', {
         method: 'POST',
         body: formData,
       })
@@ -69,6 +70,7 @@ export default function Home() {
 
       if (response.ok && data.metadata?.music?.length > 0) {
         const music = data.metadata.music[0]
+        console.log('[Page] Match found! Metadata:', JSON.stringify(music, null, 2))
         setMusic(music)
         stopRecording() // Stop immediately on match
       }
@@ -82,7 +84,7 @@ export default function Home() {
 
   const handleRecordingComplete = async (blob: Blob) => {
     // Reset chunks on complete
-    accumulatedChunksRef.current = []
+    // accumulatedChunksRef handled by hook now
 
     if (result) return
 
@@ -91,7 +93,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('audio', blob)
 
-      const response = await fetch('/api/recognize-py', {
+      const response = await fetch('/api/recognize_py', {
         method: 'POST',
         body: formData,
       })
@@ -102,10 +104,12 @@ export default function Home() {
         const music = data.metadata.music[0]
         setMusic(music)
       } else {
+        toast.error('No match found. Try getting closer to the source.')
         setError('No match found. Try getting closer to the source.')
       }
     } catch (error) {
       console.error('Recognition error:', error)
+      toast.error('Failed to process audio. Please check your connection.')
       setError('Failed to process audio. Please check your connection.')
     } finally {
       setIsAnalyzing(false)
@@ -125,7 +129,7 @@ export default function Home() {
       stopRecording()
     } else {
       reset()
-      accumulatedChunksRef.current = []
+      // accumulatedChunksRef handled by hook now
       startRecording()
     }
   }
@@ -194,20 +198,7 @@ export default function Home() {
               )}
             </AnimatePresence>
 
-            {/* Error Toast / Message */}
-            <AnimatePresence>
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="absolute -bottom-20 bg-red-500/10 border border-red-500/20 text-red-200 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  {error}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Error Toast / Message - Handled by Sonner now */}
           </div>
 
         </div>

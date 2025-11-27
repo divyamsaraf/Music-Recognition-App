@@ -16,8 +16,9 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const chunksRef = useRef<Blob[]>([])
-    const timerRef = useRef<NodeJS.Timeout | null>(null)
-    const animationFrameRef = useRef<number | null>(null)
+    const startTimeRef = useRef<number>(0)
+    const lastCheckpointRef = useRef<number>(0)
+    const animationFrameRef = useRef<number>()
     const audioContextRef = useRef<AudioContext | null>(null)
     const analyserRef = useRef<AnalyserNode | null>(null)
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
@@ -68,20 +69,43 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
             mediaRecorderRef.current = mediaRecorder
             chunksRef.current = []
             maxAudioLevelRef.current = 0
+            startTimeRef.current = Date.now() // Initialize start time
+            lastCheckpointRef.current = 0 // Reset last checkpoint
 
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     chunksRef.current.push(e.data)
-                    // Emit chunk for real-time processing if callback provided
-                    if (onDataAvailable) {
-                        // Only emit if we detected sound above threshold
-                        if (maxAudioLevelRef.current > (silenceThreshold || 10)) {
-                            onDataAvailable(e.data)
-                        } else {
-                            console.log('Skipping chunk: Silence detected', maxAudioLevelRef.current)
-                        }
-                        // Reset max level for next chunk
+
+                    // Calculate approximate duration based on number of chunks (assuming 1s timeslice)
+                    // Calculate duration based on time, not chunks (more reliable)
+                    const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000
+                    const currentDuration = Math.floor(elapsedSeconds)
+
+                    console.log(`[Recorder] Elapsed: ${elapsedSeconds.toFixed(1)}s | Level: ${maxAudioLevelRef.current}`)
+
+                    // Checkpoints: 4s, 8s, 12s
+                    // We use a ref to track if we've already triggered for this second to avoid double-firing
+                    const checkpoints = [4, 8, 12]
+
+                    // Find if we just passed a checkpoint
+                    const checkpoint = checkpoints.find(cp =>
+                        elapsedSeconds >= cp && elapsedSeconds < cp + 1.5 // 1.5s window to catch it
+                    )
+
+                    // Ensure we haven't fired for this checkpoint yet
+                    // We can store the last fired checkpoint in a ref
+                    if (checkpoint && lastCheckpointRef.current !== checkpoint) {
+                        console.log(`[Recorder] Checkpoint ${checkpoint}s reached (Actual: ${elapsedSeconds.toFixed(1)}s). FORCING request...`)
+                        lastCheckpointRef.current = checkpoint
+
+                        const fullBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
+                        if (onDataAvailable) onDataAvailable(fullBlob)
+
                         maxAudioLevelRef.current = 0
+                    }
+
+                    if (elapsedSeconds >= maxDuration) {
+                        stopRecording()
                     }
                 }
             }
@@ -96,32 +120,31 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
             mediaRecorder.start(timeslice)
             setIsRecording(true)
 
-            // Timer for duration
-            const startTime = Date.now()
-            timerRef.current = setInterval(() => {
-                const elapsed = (Date.now() - startTime) / 1000
-                setDuration(elapsed)
-                if (elapsed >= maxDuration) {
-                    stopRecording()
-                }
-            }, 100)
-
-            // Animation frame for audio level
-            const updateLevel = () => {
+            // Animation frame for audio level and duration
+            const updateLoop = () => {
                 if (!analyserRef.current) return
+
+                // Update Audio Level
                 const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
                 analyserRef.current.getByteFrequencyData(dataArray)
                 const average = dataArray.reduce((a, b) => a + b) / dataArray.length
                 setAudioLevel(average)
 
-                // Track max level
                 if (average > maxAudioLevelRef.current) {
                     maxAudioLevelRef.current = average
                 }
 
-                animationFrameRef.current = requestAnimationFrame(updateLevel)
+                // Update Duration
+                const elapsed = (Date.now() - startTimeRef.current) / 1000
+                setDuration(elapsed)
+
+                if (elapsed >= maxDuration) {
+                    stopRecording()
+                } else {
+                    animationFrameRef.current = requestAnimationFrame(updateLoop)
+                }
             }
-            updateLevel()
+            updateLoop()
 
         } catch (error) {
             console.error('Error starting recording:', error)
