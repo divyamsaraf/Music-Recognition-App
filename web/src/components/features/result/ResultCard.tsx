@@ -65,12 +65,14 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
                     <div className="absolute top-4 right-4 z-20">
                         <Button
                             variant="ghost"
-                            size="icon"
-                            className="text-white/50 hover:text-white hover:bg-white/10 rounded-full"
+                            className="text-white/70 hover:text-white hover:bg-white/10 rounded-full gap-2 pl-2 pr-4"
                             onClick={onReset}
                             title="Scan another song"
                         >
-                            <ArrowLeft className="h-6 w-6" />
+                            <div className="bg-white/10 p-1.5 rounded-full">
+                                <ArrowLeft className="h-5 w-5" />
+                            </div>
+                            <span className="font-medium">Scan Another Song</span>
                         </Button>
                     </div>
 

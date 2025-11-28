@@ -34,7 +34,7 @@ export function HistoryPreview({ history, onOpenHistory }: HistoryPreviewProps) 
         )
     }
 
-    const recentItems = history.slice(0, 5)
+    const recentItems = history
 
     return (
         <motion.div
@@ -57,56 +57,71 @@ export function HistoryPreview({ history, onOpenHistory }: HistoryPreviewProps) 
 
             <ScrollArea className="w-full whitespace-nowrap pb-4">
                 <div className="flex w-max space-x-5">
-                    {recentItems.map((item) => (
-                        <div
-                            key={item.id}
-                            onClick={onOpenHistory}
-                            className="flex-shrink-0 w-[200px] p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all group cursor-pointer"
-                        >
-                            <div className="relative aspect-square rounded-lg bg-slate-800 mb-4 overflow-hidden">
-                                {item.external_metadata?.spotify?.album?.images?.[0]?.url ? (
-                                    <img
-                                        src={item.external_metadata.spotify.album.images[0].url}
-                                        alt={item.title}
-                                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                    {recentItems.map((item) => {
+                        const imageUrl = item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                            item.album?.covers?.medium ||
+                            item.album?.cover
+
+                        return (
+                            <div
+                                key={item.id}
+                                onClick={onOpenHistory}
+                                className="flex-shrink-0 w-[200px] p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all group cursor-pointer"
+                            >
+                                <div className="relative aspect-square rounded-lg bg-slate-800 mb-4 overflow-hidden">
+                                    {imageUrl ? (
+                                        <img
+                                            src={imageUrl}
+                                            alt={item.title}
+                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none'
+                                                e.currentTarget.parentElement?.classList.add('fallback-active')
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                                            <Music2 className="h-10 w-10 text-slate-600" />
+                                        </div>
+                                    )}
+
+                                    {/* Fallback Element */}
+                                    <div className="hidden fallback-active:flex absolute inset-0 items-center justify-center bg-slate-900">
                                         <Music2 className="h-10 w-10 text-slate-600" />
                                     </div>
-                                )}
-                            </div>
+                                </div>
 
-                            <div className="space-y-1 mb-4">
-                                <h3 className="font-semibold text-white text-[15px] truncate leading-tight" title={item.title}>{item.title}</h3>
-                                <p className="text-[13px] text-gray-400 truncate" title={item.artists?.[0]?.name}>{item.artists?.[0]?.name}</p>
-                                <p className="text-[11px] text-gray-500 pt-1">
-                                    Recognized {formatDistanceToNow(item.timestamp, { addSuffix: true })}
-                                </p>
-                            </div>
+                                <div className="space-y-1 mb-4">
+                                    <h3 className="font-semibold text-white text-[15px] truncate leading-tight" title={item.title}>{item.title}</h3>
+                                    <p className="text-[13px] text-gray-400 truncate" title={item.artists?.[0]?.name}>{item.artists?.[0]?.name}</p>
+                                    <p className="text-[11px] text-gray-500 pt-1">
+                                        Recognized {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                                    </p>
+                                </div>
 
-                            <div className="flex gap-2">
-                                {item.external_metadata?.spotify?.track?.id && (
-                                    <Button
-                                        size="sm"
-                                        className="flex-1 h-8 bg-[#1DB954] hover:bg-[#1ed760] text-black text-[10px] font-bold px-0"
-                                        onClick={() => window.open(`https://open.spotify.com/track/${item.external_metadata?.spotify?.track.id}`, '_blank')}
-                                    >
-                                        Spotify
-                                    </Button>
-                                )}
-                                {item.external_metadata?.youtube?.vid && (
-                                    <Button
-                                        size="sm"
-                                        className="flex-1 h-8 bg-[#FF0000] hover:bg-[#ff1a1a] text-white text-[10px] font-bold px-0"
-                                        onClick={() => window.open(`https://www.youtube.com/watch?v=${item.external_metadata?.youtube?.vid}`, '_blank')}
-                                    >
-                                        YouTube
-                                    </Button>
-                                )}
+                                <div className="flex gap-2">
+                                    {item.external_metadata?.spotify?.track?.id && (
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 h-8 bg-[#1DB954] hover:bg-[#1ed760] text-black text-[10px] font-bold px-0"
+                                            onClick={() => window.open(`https://open.spotify.com/track/${item.external_metadata?.spotify?.track.id}`, '_blank')}
+                                        >
+                                            Spotify
+                                        </Button>
+                                    )}
+                                    {item.external_metadata?.youtube?.vid && (
+                                        <Button
+                                            size="sm"
+                                            className="flex-1 h-8 bg-[#FF0000] hover:bg-[#ff1a1a] text-white text-[10px] font-bold px-0"
+                                            onClick={() => window.open(`https://www.youtube.com/watch?v=${item.external_metadata?.youtube?.vid}`, '_blank')}
+                                        >
+                                            YouTube
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
                 <ScrollBar orientation="horizontal" className="bg-white/10" />
             </ScrollArea>

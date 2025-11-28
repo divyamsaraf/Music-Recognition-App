@@ -166,17 +166,32 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                     <div className="flex items-start gap-3 sm:gap-4 w-full h-full">
                                         {/* Album Art */}
                                         <div className="relative w-10 h-10 sm:w-[74px] sm:h-[74px] rounded-lg bg-slate-800 overflow-hidden shadow-lg flex-shrink-0">
-                                            {item.external_metadata?.spotify?.album?.images?.[0]?.url ? (
-                                                <img
-                                                    src={item.external_metadata.spotify.album.images[0].url}
-                                                    alt={item.title}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="flex items-center justify-center h-full w-full">
-                                                    <Music2 className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const imageUrl = item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                                                    item.album?.covers?.medium ||
+                                                    item.album?.cover
+
+                                                return imageUrl ? (
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt={item.title}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none'
+                                                            e.currentTarget.parentElement?.classList.add('fallback-active')
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="flex items-center justify-center h-full w-full">
+                                                        <Music2 className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
+                                                    </div>
+                                                )
+                                            })()}
+
+                                            {/* Fallback Element */}
+                                            <div className="hidden fallback-active:flex absolute inset-0 items-center justify-center bg-slate-800">
+                                                <Music2 className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
+                                            </div>
                                         </div>
 
                                         {/* Info */}
