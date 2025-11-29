@@ -1,0 +1,26 @@
+{
+    "builds": [
+        {
+            "src": "package.json",
+            "use": "@vercel/next"
+        },
+        {
+            "src": "api/**/*.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/recognize",
+            "dest": "/api/recognize.py"
+        },
+        {
+            "src": "/api/test",
+            "dest": "/api/test.py"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/$1"
+        }
+    ]
+}
