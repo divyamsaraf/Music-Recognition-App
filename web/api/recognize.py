@@ -9,6 +9,7 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 @app.route('/api/recognize', methods=['POST'])
+@app.route('/', methods=['POST'])
 def recognize():
     # 1. Get Audio File
     if 'audio' not in request.files:
