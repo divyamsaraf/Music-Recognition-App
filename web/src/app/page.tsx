@@ -61,7 +61,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('audio', accumulatedBlob)
 
-      const response = await fetch('/api/python/recognize', {
+      const response = await fetch('/py-api/recognize', {
         method: 'POST',
         body: formData,
       })
@@ -96,7 +96,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('audio', blob)
 
-      const response = await fetch('/api/python/recognize', {
+      const response = await fetch('/py-api/recognize', {
         method: 'POST',
         body: formData,
       })

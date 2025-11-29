@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/py-api/:path*",
+            "destination": "/api/python/:path*"
+        },
+        {
+            "source": "/py-test",
+            "destination": "/api/test"
+        }
+    ]
+}
