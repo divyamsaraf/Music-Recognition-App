@@ -58,9 +58,15 @@ export function HistoryPreview({ history, onOpenHistory }: HistoryPreviewProps) 
             <ScrollArea className="w-full whitespace-nowrap pb-4">
                 <div className="flex w-max space-x-5">
                     {recentItems.map((item) => {
-                        const imageUrl = item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                        const imageUrl =
+                            item.album?.cover ||
+                            item.album?.covers?.large ||
                             item.album?.covers?.medium ||
-                            item.album?.cover
+                            item.album?.covers?.small ||
+                            item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                            item.external_metadata?.spotify?.album?.images?.[1]?.url ||
+                            (item.external_metadata?.youtube?.vid ? `https://img.youtube.com/vi/${item.external_metadata.youtube.vid}/maxresdefault.jpg` : null) ||
+                            (item.external_metadata?.deezer?.album?.id ? `https://api.deezer.com/album/${item.external_metadata.deezer.album.id}/image` : null)
 
                         return (
                             <div

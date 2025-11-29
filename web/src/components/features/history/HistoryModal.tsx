@@ -24,13 +24,10 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
     const [searchQuery, setSearchQuery] = useState("")
     const [sortBy, setSortBy] = useState<SortOption>('newest')
     const [filterBy, setFilterBy] = useState<FilterOption>('all')
-    const [page, setPage] = useState(1)
-    const ITEMS_PER_PAGE = 10
 
     useEffect(() => {
         if (open) {
             loadHistory()
-            setPage(1)
         }
     }, [open, loadHistory])
 
@@ -65,12 +62,6 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
 
         return result
     }, [history, filterBy, searchQuery, sortBy])
-
-    const totalPages = Math.ceil(filteredAndSortedHistory.length / ITEMS_PER_PAGE)
-    const paginatedHistory = filteredAndSortedHistory.slice(
-        (page - 1) * ITEMS_PER_PAGE,
-        page * ITEMS_PER_PAGE
-    )
 
     const handleClearHistory = () => {
         if (confirm("Are you sure you want to clear your history?")) {
@@ -158,7 +149,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                 </div>
                             </div>
                         ) : (
-                            paginatedHistory.map((item) => (
+                            filteredAndSortedHistory.map((item) => (
                                 <div
                                     key={item.id}
                                     className="group relative flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all w-full max-w-full box-border sm:h-[100px]"
@@ -167,9 +158,16 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                         {/* Album Art */}
                                         <div className="relative w-10 h-10 sm:w-[74px] sm:h-[74px] rounded-lg bg-slate-800 overflow-hidden shadow-lg flex-shrink-0">
                                             {(() => {
-                                                const imageUrl = item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                                                const youtubeId = item.external_metadata?.youtube?.vid
+                                                const imageUrl =
+                                                    item.album?.cover ||
+                                                    item.album?.covers?.large ||
                                                     item.album?.covers?.medium ||
-                                                    item.album?.cover
+                                                    item.album?.covers?.small ||
+                                                    item.external_metadata?.spotify?.album?.images?.[0]?.url ||
+                                                    item.external_metadata?.spotify?.album?.images?.[1]?.url ||
+                                                    (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg` : null) ||
+                                                    (item.external_metadata?.deezer?.album?.id ? `https://api.deezer.com/album/${item.external_metadata.deezer.album.id}/image` : null)
 
                                                 return imageUrl ? (
                                                     <img
@@ -234,33 +232,6 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                         )}
                     </div>
                 </ScrollArea>
-
-                {/* Pagination Footer */}
-                {totalPages > 1 && (
-                    <div className="p-4 border-t border-white/5 bg-black/20 flex items-center justify-between">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setPage(p => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                            className="text-xs"
-                        >
-                            Previous
-                        </Button>
-                        <span className="text-xs text-slate-500">
-                            Page {page} of {totalPages}
-                        </span>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
-                            className="text-xs"
-                        >
-                            Next
-                        </Button>
-                    </div>
-                )}
             </DialogContent>
         </Dialog>
     )

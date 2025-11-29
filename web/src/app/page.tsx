@@ -70,7 +70,10 @@ export default function Home() {
 
       if (response.ok && data.metadata?.music?.length > 0) {
         const music = data.metadata.music[0]
-        console.log('[Page] Match found! Metadata:', JSON.stringify(music, null, 2))
+
+
+
+
         setMusic(music)
         stopRecording() // Stop immediately on match
       }
@@ -194,6 +197,7 @@ export default function Home() {
                   className="w-full"
                 >
                   <ResultCard result={result} onReset={reset} />
+
                 </motion.div>
               )}
             </AnimatePresence>

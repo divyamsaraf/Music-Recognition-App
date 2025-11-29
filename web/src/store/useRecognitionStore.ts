@@ -23,7 +23,12 @@ export interface Music {
             vid: string
         }
         deezer?: {
-            track: { id: string }
+            track: {
+                id: string
+            }
+            album?: {
+                id: string
+            }
         }
         applemusic?: {
             track: { id: string }

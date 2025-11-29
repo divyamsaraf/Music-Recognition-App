@@ -21,15 +21,16 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
     const label = music.label || music.album?.label
     const genres = music.genres?.map((g: any) => typeof g === 'string' ? g : g.name).join(', ')
 
-    // Image Logic: Try Spotify high-res first, then Album covers (large -> medium), then generic cover
-    const spotifyImg = music.external_metadata?.spotify?.album?.images?.[0]?.url
-    const largeCover = music.album?.covers?.large
-    const mediumCover = music.album?.covers?.medium
-    const genericCover = music.album?.cover
-
-    console.log('Cover Debug:', { spotifyImg, largeCover, mediumCover, genericCover })
-
-    const imageUrl = spotifyImg || largeCover || mediumCover || genericCover
+    // Exhaustive Image Logic
+    const imageUrl =
+        music.album?.cover ||
+        music.album?.covers?.large ||
+        music.album?.covers?.medium ||
+        music.album?.covers?.small ||
+        music.external_metadata?.spotify?.album?.images?.[0]?.url ||
+        music.external_metadata?.spotify?.album?.images?.[1]?.url ||
+        (music.external_metadata?.youtube?.vid ? `https://img.youtube.com/vi/${music.external_metadata.youtube.vid}/maxresdefault.jpg` : null) ||
+        (music.external_metadata?.deezer?.album?.id ? `https://api.deezer.com/album/${music.external_metadata.deezer.album.id}/image` : null)
 
     // Links
     const spotifyId = music.external_metadata?.spotify?.track?.id

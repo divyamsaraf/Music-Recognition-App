@@ -51,6 +51,14 @@ class handler(BaseHTTPRequestHandler):
             result = recognizer.recognize_by_filebuffer(audio_data, 0, len(audio_data))
             print(f"ACRCloud Result: {result}") # DEBUG LOG
             
+            # DEBUG: Write to file
+            try:
+                with open('public/debug_result.json', 'w') as f:
+                    f.write(result)
+            except Exception as e:
+                print(f"Failed to write debug file: {e}")
+            
+            
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
