@@ -18,7 +18,7 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
     const chunksRef = useRef<Blob[]>([])
     const startTimeRef = useRef<number>(0)
     const lastCheckpointRef = useRef<number>(0)
-    const animationFrameRef = useRef<number>()
+    const animationFrameRef = useRef<number | null>(null)
     const audioContextRef = useRef<AudioContext | null>(null)
     const analyserRef = useRef<AnalyserNode | null>(null)
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
@@ -31,7 +31,7 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
         setAudioLevel(0)
         maxAudioLevelRef.current = 0
 
-        if (timerRef.current) clearInterval(timerRef.current)
+
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
 
         if (sourceRef.current) sourceRef.current.disconnect()
