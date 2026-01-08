@@ -174,7 +174,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                     key={item.id}
                                     className="group relative flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all w-full max-w-full box-border sm:h-[100px]"
                                 >
-                                    <div className="flex items-start gap-3 sm:gap-4 w-full h-full">
+                                    <div className="flex items-start gap-3 sm:gap-4 w-full h-full min-w-0">
                                         {/* Album Art */}
                                         <div className="relative w-10 h-10 sm:w-[74px] sm:h-[74px] rounded-lg bg-slate-800 overflow-hidden shadow-lg flex-shrink-0">
                                             {(() => {

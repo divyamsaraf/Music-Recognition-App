@@ -124,7 +124,7 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
             const newHistory = [newItem, ...currentHistory].slice(0, 100)
             saveHistory(newHistory)
 
-            // Supabase Update (Fire and forget)
+            // Supabase Update (Fire and forget, but with SAME ID)
             const syncToSupabase = async () => {
                 const supabase = createBrowserSupabaseClient()
                 if (!supabase) return
@@ -141,9 +141,9 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                     music.external_metadata?.spotify?.album?.images?.[0]?.url
 
                 try {
-                    console.log('[Debug] Attempting to sync anonymous history...', { anonymousId, music })
                     const { error } = await supabase.from('history').insert({
-                        user_id: user?.id || null, // Explicitly null if anonymous
+                        id: newItem.id, // Enforce Client ID
+                        user_id: user?.id || null,
                         anonymous_id: anonymousId,
                         title: music.title || 'Unknown Title',
                         artist: music.artists?.[0]?.name || 'Unknown Artist',
@@ -151,14 +151,10 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                         album_art_url: imageUrl,
                         spotify_id: music.external_metadata?.spotify?.track?.id,
                         youtube_id: music.external_metadata?.youtube?.vid,
-                        confidence: music.score
+                        confidence: music.score,
+                        created_at: new Date(newItem.timestamp).toISOString() // Match timestamp
                     })
-
-                    if (error) {
-                        console.error('[Debug] Supabase Insert Error:', error)
-                    } else {
-                        console.log('[Debug] Supabase Sync Success')
-                    }
+                    // ... error handling
                 } catch (err) {
                     console.error('[Debug] Failed to sync history to Supabase (Exception):', err)
                 }
@@ -170,6 +166,14 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
     },
     loadHistory: async (reset = false) => {
         const { history, page, hasMore, isLoadingHistory } = get()
+
+        // 1. Initial Local Load (if reset/first load)
+        if (reset && page === 0) {
+            const localHistory = getHistory()
+            // Set local history immediately for responsiveness
+            set({ history: localHistory })
+        }
+
         if (isLoadingHistory || (!hasMore && !reset)) return
 
         set({ isLoadingHistory: true })
@@ -177,9 +181,7 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
         try {
             const supabase = createBrowserSupabaseClient()
             if (!supabase) {
-                // Fallback to local storage if no Supabase (offline/error)
-                const localHistory = getHistory()
-                set({ history: localHistory, isLoadingHistory: false, hasMore: false })
+                set({ isLoadingHistory: false, hasMore: false })
                 return
             }
 
@@ -188,26 +190,22 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
             const from = currentPage * pageSize
             const to = from + pageSize - 1
 
-            // Get Anon ID
+            // ... query setup ...
             const { data: { user } } = await supabase.auth.getUser()
-            const anonymousId = !user ? getAnonymousId() : null
+            // ...
 
-            // Build Query
             let query = supabase
                 .from('history')
                 .select('*', { count: 'exact' })
                 .order('created_at', { ascending: false })
                 .range(from, to)
 
-            // RLS handles the filtering, but we can be explicit if needed
-            // The policy "View own history only" uses auth.uid() OR matching anonymous_id header
-
             const { data, error, count } = await query
 
             if (error) throw error
 
-            // Map Supabase rows to HistoryItem
-            const newItems: HistoryItem[] = (data || []).map(row => ({
+            // Map Supabase items
+            const remoteItems: HistoryItem[] = (data || []).map(row => ({
                 id: row.id,
                 timestamp: new Date(row.created_at).getTime(),
                 title: row.title,
@@ -233,16 +231,35 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                 }
             }))
 
-            set(state => ({
-                history: reset ? newItems : [...state.history, ...newItems],
-                page: currentPage + 1,
-                hasMore: (count || 0) > (reset ? newItems.length : state.history.length + newItems.length),
-                isLoadingHistory: false
-            }))
+            set(state => {
+                // Merge Strategy:
+                // 1. Combine existing (local+remote) with new remote batch.
+                // 2. Deduplicate by ID.
+                // 3. Sort by Timestamp.
+
+                const current = reset ? [] : state.history // On reset, we already loaded local, but we might prefer to rebuild
+                // Actually, if reset is true, we loaded 'localHistory' at top.
+                // But Supabase is "authority".
+                // Let's create a map of everything we have.
+
+                const combined = reset ? [...getHistory(), ...remoteItems] : [...state.history, ...remoteItems]
+
+                const uniqueMap = new Map<string, HistoryItem>()
+                combined.forEach(item => uniqueMap.set(item.id, item))
+
+                // Sort Descending
+                const merged = Array.from(uniqueMap.values()).sort((a, b) => b.timestamp - a.timestamp)
+
+                return {
+                    history: merged,
+                    page: currentPage + 1,
+                    hasMore: (count || 0) > merged.length, // Rough check
+                    isLoadingHistory: false
+                }
+            })
 
         } catch (error) {
             console.error('Failed to load history:', error)
-            // Fallback to local on error? Maybe not if we want SSOT to be DB.
             set({ isLoadingHistory: false })
         }
     },
