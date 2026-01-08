@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import { getAnonymousId } from '@/lib/storage'
 
 export function createBrowserSupabaseClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -8,5 +9,13 @@ export function createBrowserSupabaseClient() {
         return null
     }
 
-    return createBrowserClient(url, key)
+    const anonymousId = getAnonymousId()
+
+    return createBrowserClient(url, key, {
+        global: {
+            headers: {
+                'x-anonymous-id': anonymousId
+            }
+        }
+    })
 }

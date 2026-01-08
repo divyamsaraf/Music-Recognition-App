@@ -13,6 +13,7 @@ import { ResultCard } from '@/components/features/result/ResultCard'
 
 import { Navbar } from '@/components/layout/Navbar'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
+import { getAnonymousId } from '@/lib/storage'
 
 export default function Home() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -31,8 +32,15 @@ export default function Home() {
     const syncHistory = async () => {
       if (!supabase) return
       const { data: { user } } = await supabase.auth.getUser()
-      // Logic to sync cookie history to Supabase could go here
-      // For now we just load cookies as requested for anonymous persistence
+      if (user) {
+        // Merge anonymous history if exists
+        const anonId = getAnonymousId()
+        if (anonId) {
+          await supabase.rpc('merge_anonymous_history', { anon_id: anonId })
+          // We don't clear the anon ID from local storage immediately as it might be used for other things,
+          // but the DB records are now owned by the user.
+        }
+      }
     }
     syncHistory()
   }, [supabase])

@@ -27,11 +27,29 @@ export function saveHistory(history: HistoryItem[]) {
     }
 }
 
+
 export function clearHistoryStorage() {
     if (typeof window === 'undefined') return
     try {
         window.localStorage.removeItem(STORAGE_KEY)
     } catch (error) {
         console.error('Failed to clear history:', error)
+    }
+}
+
+const ANON_ID_KEY = 'soundlens_anonymous_id'
+
+export function getAnonymousId(): string {
+    if (typeof window === 'undefined') return ''
+    try {
+        let id = window.localStorage.getItem(ANON_ID_KEY)
+        if (!id) {
+            id = crypto.randomUUID()
+            window.localStorage.setItem(ANON_ID_KEY, id)
+        }
+        return id
+    } catch (error) {
+        console.error('Failed to get/set anonymous ID:', error)
+        return ''
     }
 }

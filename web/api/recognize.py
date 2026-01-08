@@ -41,3 +41,6 @@ def recognize():
         return jsonify({'error': str(e)}), 500
 
 # Vercel requires the app to be available as 'app'
+
+if __name__ == '__main__':
+    app.run(port=5328)

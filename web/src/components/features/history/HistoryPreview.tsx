@@ -34,7 +34,7 @@ export function HistoryPreview({ history, onOpenHistory }: HistoryPreviewProps) 
         )
     }
 
-    const recentItems = history
+    const recentItems = history.slice(0, 10)
 
     return (
         <motion.div

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { getHistory, saveHistory, clearHistoryStorage, HistoryItem } from '@/lib/storage'
+import { getHistory, saveHistory, clearHistoryStorage, HistoryItem, getAnonymousId } from '@/lib/storage'
+import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 
 export interface Music {
     title?: string
@@ -64,13 +65,16 @@ interface RecognitionStore {
     result: RecognitionResult | null
     error: string | null
     isLoading: boolean
+    isLoadingHistory: boolean
     history: HistoryItem[]
+    hasMore: boolean
+    page: number
     setResult: (result: RecognitionResult) => void
     setMusic: (music: Music) => void
     setError: (error: string) => void
     reset: () => void
     addToHistory: (music: Music) => void
-    loadHistory: () => void
+    loadHistory: (reset?: boolean) => Promise<void>
     clearHistory: () => void
 }
 
@@ -78,7 +82,10 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
     result: null,
     error: null,
     isLoading: false,
+    isLoadingHistory: false,
     history: [],
+    hasMore: true,
+    page: 0,
     setResult: (result) => set({ result, error: null }),
     setMusic: (music) => {
         set({
@@ -92,7 +99,7 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
     },
     setError: (error) => set({ error, result: null }),
     reset: () => set({ result: null, error: null, isLoading: false }),
-    addToHistory: (music) => {
+    addToHistory: async (music) => {
         const newItem: HistoryItem = {
             ...music,
             id: crypto.randomUUID(),
@@ -100,8 +107,6 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
         }
 
         set((state) => {
-            // Load current history from storage to ensure we have the latest
-            // This handles cases where multiple tabs might update history
             const currentHistory = getHistory()
 
             // Prevent duplicates (simple check by title + artist)
@@ -115,17 +120,142 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                 return { history: currentHistory }
             }
 
-            const newHistory = [newItem, ...currentHistory].slice(0, 100) // Keep last 100 items (localStorage can handle more)
+            // Local Update
+            const newHistory = [newItem, ...currentHistory].slice(0, 100)
             saveHistory(newHistory)
+
+            // Supabase Update (Fire and forget)
+            const syncToSupabase = async () => {
+                const supabase = createBrowserSupabaseClient()
+                if (!supabase) return
+
+                const { data: { user } } = await supabase.auth.getUser()
+                const anonymousId = !user ? getAnonymousId() : null
+
+                // Image Logic (Shared with ResultCard roughly)
+                const imageUrl =
+                    music.album?.cover ||
+                    music.album?.covers?.large ||
+                    music.album?.covers?.medium ||
+                    music.album?.covers?.small ||
+                    music.external_metadata?.spotify?.album?.images?.[0]?.url
+
+                try {
+                    console.log('[Debug] Attempting to sync anonymous history...', { anonymousId, music })
+                    const { error } = await supabase.from('history').insert({
+                        user_id: user?.id || null, // Explicitly null if anonymous
+                        anonymous_id: anonymousId,
+                        title: music.title || 'Unknown Title',
+                        artist: music.artists?.[0]?.name || 'Unknown Artist',
+                        album: music.album?.name,
+                        album_art_url: imageUrl,
+                        spotify_id: music.external_metadata?.spotify?.track?.id,
+                        youtube_id: music.external_metadata?.youtube?.vid,
+                        confidence: music.score
+                    })
+
+                    if (error) {
+                        console.error('[Debug] Supabase Insert Error:', error)
+                    } else {
+                        console.log('[Debug] Supabase Sync Success')
+                    }
+                } catch (err) {
+                    console.error('[Debug] Failed to sync history to Supabase (Exception):', err)
+                }
+            }
+            syncToSupabase()
+
             return { history: newHistory }
         })
     },
-    loadHistory: () => {
-        const history = getHistory()
-        set({ history })
+    loadHistory: async (reset = false) => {
+        const { history, page, hasMore, isLoadingHistory } = get()
+        if (isLoadingHistory || (!hasMore && !reset)) return
+
+        set({ isLoadingHistory: true })
+
+        try {
+            const supabase = createBrowserSupabaseClient()
+            if (!supabase) {
+                // Fallback to local storage if no Supabase (offline/error)
+                const localHistory = getHistory()
+                set({ history: localHistory, isLoadingHistory: false, hasMore: false })
+                return
+            }
+
+            const currentPage = reset ? 0 : page
+            const pageSize = 20
+            const from = currentPage * pageSize
+            const to = from + pageSize - 1
+
+            // Get Anon ID
+            const { data: { user } } = await supabase.auth.getUser()
+            const anonymousId = !user ? getAnonymousId() : null
+
+            // Build Query
+            let query = supabase
+                .from('history')
+                .select('*', { count: 'exact' })
+                .order('created_at', { ascending: false })
+                .range(from, to)
+
+            // RLS handles the filtering, but we can be explicit if needed
+            // The policy "View own history only" uses auth.uid() OR matching anonymous_id header
+
+            const { data, error, count } = await query
+
+            if (error) throw error
+
+            // Map Supabase rows to HistoryItem
+            const newItems: HistoryItem[] = (data || []).map(row => ({
+                id: row.id,
+                timestamp: new Date(row.created_at).getTime(),
+                title: row.title,
+                score: row.confidence,
+                artists: [{ name: row.artist }],
+                album: {
+                    name: row.album,
+                    cover: row.album_art_url,
+                    covers: {
+                        large: row.album_art_url,
+                        medium: row.album_art_url,
+                        small: row.album_art_url
+                    }
+                },
+                external_metadata: {
+                    spotify: row.spotify_id ? {
+                        track: { id: row.spotify_id },
+                        album: { images: [{ url: row.album_art_url }] }
+                    } : undefined,
+                    youtube: row.youtube_id ? {
+                        vid: row.youtube_id
+                    } : undefined
+                }
+            }))
+
+            set(state => ({
+                history: reset ? newItems : [...state.history, ...newItems],
+                page: currentPage + 1,
+                hasMore: (count || 0) > (reset ? newItems.length : state.history.length + newItems.length),
+                isLoadingHistory: false
+            }))
+
+        } catch (error) {
+            console.error('Failed to load history:', error)
+            // Fallback to local on error? Maybe not if we want SSOT to be DB.
+            set({ isLoadingHistory: false })
+        }
     },
-    clearHistory: () => {
+    clearHistory: async () => {
+        // Clear local state
         set({ history: [] })
         clearHistoryStorage()
+
+        // Clear Supabase
+        const supabase = createBrowserSupabaseClient()
+        if (supabase) {
+            const { error } = await supabase.from('history').delete().neq('id', '00000000-0000-0000-0000-000000000000') // Delete all rows visible to user
+            if (error) console.error("Failed to clear Supabase history", error)
+        }
     }
 }))

@@ -8,6 +8,7 @@ import { ArrowLeft, Trash2, ExternalLink, Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import { getAnonymousId } from '@/lib/storage'
 
 interface HistoryItem {
     id: string
@@ -25,20 +26,30 @@ export default function HistoryPage() {
     const supabase = createBrowserSupabaseClient()
     const router = useRouter()
 
+
     const fetchHistory = useCallback(async () => {
         if (!supabase) return
         try {
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                setLoading(false)
-                return
-            }
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from('history')
                 .select('*')
-                .eq('user_id', user.id)
                 .order('created_at', { ascending: false })
+
+            if (user) {
+                query = query.eq('user_id', user.id)
+            } else {
+                const anonId = getAnonymousId()
+                if (!anonId) {
+                    setLoading(false)
+                    return
+                }
+                // For anonymous users, we fetch by anonymous_id
+                query = query.eq('anonymous_id', anonId).is('user_id', null)
+            }
+
+            const { data, error } = await query
 
             if (error) throw error
             setHistory(data || [])

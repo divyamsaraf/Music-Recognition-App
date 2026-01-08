@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { createBrowserSupabaseClient } from "@/lib/supabase/client"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Music2, Trash2, ExternalLink, Search, Filter, ArrowUpDown, Calendar, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,16 +20,36 @@ type SortOption = 'newest' | 'oldest' | 'title'
 type FilterOption = 'all' | 'spotify' | 'youtube'
 
 export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
-    const { history, loadHistory, clearHistory } = useRecognitionStore()
+    const { history, loadHistory, clearHistory, isLoadingHistory, hasMore } = useRecognitionStore()
     const [searchQuery, setSearchQuery] = useState("")
     const [sortBy, setSortBy] = useState<SortOption>('newest')
     const [filterBy, setFilterBy] = useState<FilterOption>('all')
 
+    // Observer ref
+    const observerTarget = useRef<HTMLDivElement>(null)
+
     useEffect(() => {
         if (open) {
-            loadHistory()
+            loadHistory(true) // Reset and load first page
         }
     }, [open, loadHistory])
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore && !isLoadingHistory) {
+                    loadHistory()
+                }
+            },
+            { threshold: 0.1 }
+        )
+
+        if (observerTarget.current) {
+            observer.observe(observerTarget.current)
+        }
+
+        return () => observer.disconnect()
+    }, [hasMore, isLoadingHistory, loadHistory])
 
     const filteredAndSortedHistory = useMemo(() => {
         let result = [...history]
@@ -75,7 +95,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
             <DialogContent className="w-[90vw] max-w-[650px] max-h-[85vh] bg-slate-950/90 backdrop-blur-xl border-white/10 text-white shadow-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col">
 
                 {/* Header */}
-                <div className="p-4 md:p-6 border-b border-white/5 space-y-4 bg-black/20 flex-shrink-0">
+                <div className="p-4 md:p-6 border-b border-white/5 space-y-4 bg-black/20 flex-shrink-0 z-10">
                     <div className="flex items-center justify-between gap-4">
                         <DialogTitle className="text-lg md:text-xl font-semibold flex items-center gap-2 min-w-0">
                             <Clock className="w-5 h-5 text-blue-400 flex-shrink-0" />
@@ -229,6 +249,23 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                     </div>
                                 </div>
                             ))
+                        )}
+                        {/* Loading Indicator */}
+                        {isLoadingHistory && (
+                            <div className="py-4 flex justify-center">
+                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                            </div>
+                        )}
+
+                        {/* Sentinel for infinite scroll */}
+                        {hasMore && (
+                            <div ref={observerTarget} className="h-4 w-full" />
+                        )}
+
+                        {!hasMore && history.length > 0 && (
+                            <div className="py-4 text-center text-xs text-slate-600">
+                                End of history
+                            </div>
                         )}
                     </div>
                 </ScrollArea>
