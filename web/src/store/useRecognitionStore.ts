@@ -106,25 +106,10 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
             timestamp: Date.now()
         }
 
-        set((state) => {
+        set(() => {
             const currentHistory = getHistory()
 
-            // Prevent duplicates (simple check by title + artist)
-            const isDuplicate = currentHistory.some(item =>
-                item.title === music.title &&
-                item.artists?.[0]?.name === music.artists?.[0]?.name &&
-                Date.now() - item.timestamp < 10000 // 10s debounce
-            )
-
-            if (isDuplicate) {
-                return { history: currentHistory }
-            }
-
-            // Local Update
-            const newHistory = [newItem, ...currentHistory].slice(0, 100)
-            saveHistory(newHistory)
-
-            // Supabase Update (Fire and forget, but with SAME ID)
+            // Supabase Update Logic (Shared)
             const syncToSupabase = async () => {
                 const supabase = createBrowserSupabaseClient()
                 if (!supabase) return
@@ -141,7 +126,7 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                     music.external_metadata?.spotify?.album?.images?.[0]?.url
 
                 try {
-                    const { error } = await supabase.from('history').insert({
+                    await supabase.from('history').insert({
                         id: newItem.id, // Enforce Client ID
                         user_id: user?.id || null,
                         anonymous_id: anonymousId,
@@ -154,22 +139,45 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                         confidence: music.score,
                         created_at: new Date(newItem.timestamp).toISOString() // Match timestamp
                     })
-                    // ... error handling
                 } catch (err) {
                     console.error('[Debug] Failed to sync history to Supabase (Exception):', err)
                 }
             }
+
+            // SPECIAL CASE: "No Match Found"
+            // We want to log it to DB (syncToSupabase) but NOT show it in the UI (local state)
+            if (music.title === 'No Match Found') {
+                syncToSupabase()
+                return {} // No state change
+            }
+
+            // Prevent duplicates (simple check by title + artist)
+            const isDuplicate = currentHistory.some(item =>
+                item.title === music.title &&
+                item.artists?.[0]?.name === music.artists?.[0]?.name &&
+                Date.now() - item.timestamp < 10000 // 10s debounce
+            )
+
+            if (isDuplicate) {
+                return { history: currentHistory }
+            }
+
+            // Local Update
+            const newHistory = [newItem, ...currentHistory].slice(0, 100)
+            saveHistory(newHistory)
+
+            // Sync valid result to Supabase too
             syncToSupabase()
 
             return { history: newHistory }
         })
     },
     loadHistory: async (reset = false) => {
-        const { history, page, hasMore, isLoadingHistory } = get()
+        const { page, hasMore, isLoadingHistory } = get()
 
         // 1. Initial Local Load (if reset/first load)
         if (reset && page === 0) {
-            const localHistory = getHistory()
+            const localHistory = getHistory().filter(item => item.title !== 'No Match Found')
             // Set local history immediately for responsiveness
             set({ history: localHistory })
         }
@@ -191,10 +199,10 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
             const to = from + pageSize - 1
 
             // ... query setup ...
-            const { data: { user } } = await supabase.auth.getUser()
+            await supabase.auth.getUser()
             // ...
 
-            let query = supabase
+            const query = supabase
                 .from('history')
                 .select('*', { count: 'exact' })
                 .order('created_at', { ascending: false })
@@ -236,13 +244,14 @@ export const useRecognitionStore = create<RecognitionStore>((set, get) => ({
                 // 1. Combine existing (local+remote) with new remote batch.
                 // 2. Deduplicate by ID.
                 // 3. Sort by Timestamp.
+                // 4. Filter out 'No Match Found'
 
-                const current = reset ? [] : state.history // On reset, we already loaded local, but we might prefer to rebuild
-                // Actually, if reset is true, we loaded 'localHistory' at top.
-                // But Supabase is "authority".
-                // Let's create a map of everything we have.
+                // Filter logic
+                const validRemoteItems = remoteItems.filter(item => item.title !== 'No Match Found')
 
-                const combined = reset ? [...getHistory(), ...remoteItems] : [...state.history, ...remoteItems]
+                const combined = reset ?
+                    [...getHistory().filter(item => item.title !== 'No Match Found'), ...validRemoteItems] :
+                    [...state.history, ...validRemoteItems]
 
                 const uniqueMap = new Map<string, HistoryItem>()
                 combined.forEach(item => uniqueMap.set(item.id, item))

@@ -1,11 +1,10 @@
 'use client'
 
 import { RecorderButton } from '@/components/features/recorder'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRecognitionStore } from '@/store/useRecognitionStore'
 import { useRecorder } from '@/hooks/useRecorder'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { HistoryPreview } from '@/components/features/history/HistoryPreview'
 import { HistoryModal } from '@/components/features/history/HistoryModal'
@@ -20,7 +19,6 @@ export default function Home() {
   const { result, error, setMusic, setError, reset, history, loadHistory } = useRecognitionStore()
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const supabase = createBrowserSupabaseClient()
-  const accumulatedChunksRef = useRef<Blob[]>([])
 
   // Load history from cookies on mount
   useEffect(() => {
@@ -48,56 +46,46 @@ export default function Home() {
   // Handle real-time chunks
   const isRequestPending = useRef(false)
 
-  const handleDataAvailable = async (chunk: Blob) => {
-    if (result) return
+  const handleDataAvailable = useCallback(async (chunk: Blob) => {
+    // call original logic but we need to stop
+    // Let's just rewrite handleDataAvailable here to be self-contained
+    if (useRecognitionStore.getState().result) return
 
-    // Smart Staged Logic: The hook now sends the FULL accumulated blob at 4s, 8s, 12s.
-    // We don't need to accumulate chunks manually anymore.
-    const accumulatedBlob = chunk
-
-    // Skip if a request is already in progress
-    if (isRequestPending.current) {
-      console.log('Skipping chunk, request pending')
-      return
-    }
+    if (isRequestPending.current) return
 
     setIsAnalyzing(true)
     isRequestPending.current = true
 
     try {
-      console.log(`[Page] Sending request with blob size: ${accumulatedBlob.size} bytes`)
+      console.log(`[Page] Sending request with blob size: ${chunk.size} bytes`)
       const formData = new FormData()
-      formData.append('audio', accumulatedBlob)
+      formData.append('audio', chunk)
 
       const response = await fetch('/api/recognize', {
         method: 'POST',
         body: formData,
       })
-
       const data = await response.json()
 
       if (response.ok && data.metadata?.music?.length > 0) {
         const music = data.metadata.music[0]
-
-
-
-
         setMusic(music)
-        stopRecording() // Stop immediately on match
+        stopRecordingRef.current() // Use the Ref!
       }
-    } catch (error) {
-      console.error('Recognition error (chunk):', error)
+    } catch (err) {
+      console.error(err)
     } finally {
       setIsAnalyzing(false)
       isRequestPending.current = false
     }
-  }
+  }, [setMusic])
 
-  const handleRecordingComplete = async (blob: Blob) => {
-    // Reset chunks on complete
-    // accumulatedChunksRef handled by hook now
+  const stopRecordingRef = useRef<() => void>(() => { })
 
-    if (result) return
+  const handleRecordingComplete = useCallback(async (blob: Blob) => {
+    // Check result AGAIN in case a race condition happened just before this fired
+    // (Although the hook ref fix solves the main one, this is double safety)
+    if (useRecognitionStore.getState().result) return
 
     setIsAnalyzing(true)
     try {
@@ -115,17 +103,31 @@ export default function Home() {
         const music = data.metadata.music[0]
         setMusic(music)
       } else {
+        // No match found logic
         toast.error('No match found. Try getting closer to the source.')
-        setError('No match found. Try getting closer to the source.')
+
+        // Log to history silently
+        const { addToHistory } = useRecognitionStore.getState()
+        addToHistory({
+          title: 'No Match Found',
+          artists: [{ name: 'Unknown' }],
+          album: { name: 'Unknown' },
+          score: 0
+        })
+
+        // Do NOT set error state that hides the UI, just show toast
+        // actually, let's just leave the UI in "ready to record" state
+        // setError('No match found') // This would show the error UI, maybe we just want toast?
+        // User asked: "if no match found add that result to the database"
+
       }
     } catch (error) {
       console.error('Recognition error:', error)
       toast.error('Failed to process audio. Please check your connection.')
-      setError('Failed to process audio. Please check your connection.')
     } finally {
       setIsAnalyzing(false)
     }
-  }
+  }, [setMusic])
 
   const { isRecording, startRecording, stopRecording, audioLevel } = useRecorder({
     onRecordingComplete: handleRecordingComplete,
@@ -135,15 +137,20 @@ export default function Home() {
     silenceThreshold: 15 // Skip chunks with average volume below 15 (0-255 range)
   })
 
-  const handleToggle = () => {
+  // Update ref for the circular dependency
+  useEffect(() => {
+    stopRecordingRef.current = stopRecording
+  }, [stopRecording])
+
+
+  const handleToggle = useCallback(() => {
     if (isRecording) {
       stopRecording()
     } else {
       reset()
-      // accumulatedChunksRef handled by hook now
       startRecording()
     }
-  }
+  }, [isRecording, stopRecording, reset, startRecording])
 
   // Reset state on mount
   useEffect(() => {

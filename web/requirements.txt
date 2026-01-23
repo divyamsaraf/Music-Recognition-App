@@ -2,3 +2,4 @@ acrcloud
 requests
 python-multipart
 flask
+python-dotenv

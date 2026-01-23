@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { toast } from 'sonner'
 
 interface UseRecorderProps {
@@ -9,7 +9,7 @@ interface UseRecorderProps {
     silenceThreshold?: number
 }
 
-export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration = 20, timeslice = 2000, silenceThreshold = 10 }: UseRecorderProps) {
+export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration = 20, timeslice = 2000 }: UseRecorderProps) {
     const [isRecording, setIsRecording] = useState(false)
     const [duration, setDuration] = useState(0)
     const [audioLevel, setAudioLevel] = useState(0)
@@ -24,6 +24,14 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
     const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
 
     const maxAudioLevelRef = useRef(0)
+
+    // Use refs for callbacks to prevent stale closures in EventListeners
+    const savedCallbacks = useRef({ onRecordingComplete, onDataAvailable })
+
+    useEffect(() => {
+        savedCallbacks.current = { onRecordingComplete, onDataAvailable }
+    }, [onRecordingComplete, onDataAvailable])
+
 
     const cleanup = useCallback(() => {
         setIsRecording(false)
@@ -79,7 +87,6 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
                     // Calculate approximate duration based on number of chunks (assuming 1s timeslice)
                     // Calculate duration based on time, not chunks (more reliable)
                     const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000
-                    const currentDuration = Math.floor(elapsedSeconds)
 
                     console.log(`[Recorder] Elapsed: ${elapsedSeconds.toFixed(1)}s | Level: ${maxAudioLevelRef.current}`)
 
@@ -99,7 +106,11 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
                         lastCheckpointRef.current = checkpoint
 
                         const fullBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
-                        if (onDataAvailable) onDataAvailable(fullBlob)
+
+                        // Use the REF for the callback
+                        if (savedCallbacks.current.onDataAvailable) {
+                            savedCallbacks.current.onDataAvailable(fullBlob)
+                        }
 
                         maxAudioLevelRef.current = 0
                     }
@@ -112,7 +123,10 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
 
             mediaRecorder.onstop = () => {
                 const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-                onRecordingComplete(blob)
+
+                // Use the REF for the callback
+                savedCallbacks.current.onRecordingComplete(blob)
+
                 cleanup()
             }
 
@@ -150,7 +164,7 @@ export function useRecorder({ onRecordingComplete, onDataAvailable, maxDuration 
             console.error('Error starting recording:', error)
             toast.error('Could not access microphone')
         }
-    }, [maxDuration, timeslice, onRecordingComplete, onDataAvailable, cleanup, stopRecording])
+    }, [maxDuration, timeslice, cleanup, stopRecording])
 
     return {
         isRecording,

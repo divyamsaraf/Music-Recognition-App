@@ -1,6 +1,10 @@
 from flask import Flask, request, jsonify
 import os
 from acrcloud.recognizer import ACRCloudRecognizer
+from dotenv import load_dotenv
+
+# Load env vars for local development
+load_dotenv(os.path.join(os.path.dirname(__file__), '../.env.local'))
 
 app = Flask(__name__)
 
