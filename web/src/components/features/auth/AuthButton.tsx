@@ -53,9 +53,11 @@ export function AuthButton() {
                 <Button
                     onClick={() => setIsAuthModalOpen(true)}
                     variant="outline"
-                    className="border-white/10 hover:bg-white/10 text-white"
+                    size="lg"
+                    className="h-9 md:h-10 rounded-md border-white/10 bg-white/[0.03] text-white hover:bg-white/10 px-3 md:px-4 text-xs md:text-sm"
                 >
-                    Login / Sign Up
+                    <span className="md:hidden">Login</span>
+                    <span className="hidden md:inline">Login / Sign Up</span>
                 </Button>
                 <AuthModal open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen} />
             </>

@@ -9,6 +9,10 @@ jest.mock('@/lib/storage', () => ({
     clearHistoryStorage: jest.fn(),
 }))
 
+jest.mock('@/lib/supabase/client', () => ({
+    createBrowserSupabaseClient: () => null,
+}))
+
 describe('useRecognitionStore', () => {
     const mockMusic = {
         title: 'Test Song',
@@ -74,14 +78,14 @@ describe('useRecognitionStore', () => {
         expect(storage.saveHistory).toHaveBeenCalledTimes(1)
     })
 
-    it('should load history from storage', () => {
+    it('should load history from storage', async () => {
         const mockHistory = [{ ...mockMusic, id: '1', timestamp: 123 }]
             ; (storage.getHistory as jest.Mock).mockReturnValue(mockHistory)
 
         const { result } = renderHook(() => useRecognitionStore())
 
-        act(() => {
-            result.current.loadHistory()
+        await act(async () => {
+            await result.current.loadHistory(true)
         })
 
         expect(result.current.history).toEqual(mockHistory)

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
 import { createBrowserSupabaseClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
@@ -25,13 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { Loader2, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-
-const authSchema = z.object({
-    email: z.string().email('Invalid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-})
-
-type AuthFormData = z.infer<typeof authSchema>
+import { authSchema, type AuthFormData } from './auth-schema'
 
 interface AuthModalProps {
     open: boolean
@@ -42,6 +35,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [rememberMe, setRememberMe] = useState(false)
+    const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login')
     const supabase = createBrowserSupabaseClient()
     const router = useRouter()
 
@@ -87,8 +81,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
             onOpenChange(false)
             router.refresh()
             resetLogin()
-        } catch (err: any) {
-            setError(err.message || 'Failed to login')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to login')
         } finally {
             setIsLoading(false)
         }
@@ -110,8 +104,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
             toast.success('Account created! Please check your email to confirm.')
             onOpenChange(false)
             resetSignup()
-        } catch (err: any) {
-            setError(err.message || 'Failed to create account')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to create account')
         } finally {
             setIsLoading(false)
         }
@@ -119,6 +113,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
     const handleGoogleLogin = async () => {
         if (!supabase) return
+        setError(null)
         try {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -127,31 +122,51 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                 },
             })
             if (error) throw error
-        } catch (err: any) {
-            setError(err.message || 'Failed to initiate Google login')
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'Failed to initiate Google login')
         }
     }
 
+    const handleModalOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) {
+            setError(null)
+            setIsLoading(false)
+            setRememberMe(false)
+            setActiveTab('login')
+            resetLogin()
+            resetSignup()
+        }
+        onOpenChange(nextOpen)
+    }
+
+    const handleTabChange = (nextTab: string) => {
+        const typedTab = nextTab as 'login' | 'signup'
+        setActiveTab(typedTab)
+        setError(null)
+        setIsLoading(false)
+    }
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[400px] bg-slate-950 border-slate-800 text-white">
+        <Dialog open={open} onOpenChange={handleModalOpenChange}>
+            <DialogContent className="sm:max-w-[420px] bg-slate-950 border-slate-800 text-white">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold text-center">Welcome to SoundLens</DialogTitle>
                     <DialogDescription className="text-center text-slate-400">
-                        Login or create an account to save your discoveries.
+                        Sign in or create an account to save your discoveries.
                     </DialogDescription>
                 </DialogHeader>
 
-                <Tabs defaultValue="login" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-900">
-                        <TabsTrigger value="login">Login</TabsTrigger>
-                        <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                    <TabsList className="grid h-11 w-full grid-cols-2 bg-slate-900 p-1">
+                        <TabsTrigger value="login" className="rounded-md text-sm font-semibold">Login</TabsTrigger>
+                        <TabsTrigger value="signup" className="rounded-md text-sm font-semibold">Sign Up</TabsTrigger>
                     </TabsList>
 
                     {/* Login Tab */}
-                    <TabsContent value="login" className="space-y-4 mt-4">
-                        <form onSubmit={handleSubmitLogin(onLogin)} className="space-y-4">
-                            <div className="space-y-2">
+                    <TabsContent value="login" className="mt-3 min-h-[244px]">
+                        <form onSubmit={handleSubmitLogin(onLogin)} className="flex min-h-[244px] flex-col">
+                            <div className="space-y-3">
+                                <div className="space-y-2">
                                 <Label htmlFor="login-email">Email</Label>
                                 <Input
                                     id="login-email"
@@ -163,8 +178,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                                 {loginErrors.email && (
                                     <p className="text-xs text-red-400">{loginErrors.email.message}</p>
                                 )}
-                            </div>
-                            <div className="space-y-2">
+                                </div>
+                                <div className="space-y-2">
                                 <Label htmlFor="login-password">Password</Label>
                                 <Input
                                     id="login-password"
@@ -175,36 +190,40 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                                 {loginErrors.password && (
                                     <p className="text-xs text-red-400">{loginErrors.password.message}</p>
                                 )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id="remember"
-                                    checked={rememberMe}
-                                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                    className="border-slate-700 data-[state=checked]:bg-blue-600"
-                                />
-                                <Label htmlFor="remember" className="text-sm font-normal text-slate-400 cursor-pointer">
-                                    Remember me
-                                </Label>
-                            </div>
-
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-md text-sm flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4" />
-                                    {error}
                                 </div>
-                            )}
-
-                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
-                            </Button>
+                                <div className="h-6 flex items-center space-x-2">
+                                    <Checkbox
+                                        id="login-remember"
+                                        checked={rememberMe}
+                                        onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                                        className="border-slate-700 data-[state=checked]:bg-blue-600"
+                                    />
+                                    <Label htmlFor="login-remember" className="text-sm font-normal text-slate-400 cursor-pointer">
+                                        Remember me
+                                    </Label>
+                                </div>
+                            </div>
+                            <div className="mt-auto space-y-2 pt-1">
+                                <div className="min-h-[36px]">
+                                    {error && (
+                                        <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-md text-sm flex items-center gap-2">
+                                            <AlertCircle className="w-4 h-4" />
+                                            {error}
+                                        </div>
+                                    )}
+                                </div>
+                                <Button type="submit" size="lg" className="w-full h-10 bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign In'}
+                                </Button>
+                            </div>
                         </form>
                     </TabsContent>
 
                     {/* Signup Tab */}
-                    <TabsContent value="signup" className="space-y-4 mt-4">
-                        <form onSubmit={handleSubmitSignup(onSignup)} className="space-y-4">
-                            <div className="space-y-2">
+                    <TabsContent value="signup" className="mt-3 min-h-[244px]">
+                        <form onSubmit={handleSubmitSignup(onSignup)} className="flex min-h-[244px] flex-col">
+                            <div className="space-y-3">
+                                <div className="space-y-2">
                                 <Label htmlFor="signup-email">Email</Label>
                                 <Input
                                     id="signup-email"
@@ -216,8 +235,8 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                                 {signupErrors.email && (
                                     <p className="text-xs text-red-400">{signupErrors.email.message}</p>
                                 )}
-                            </div>
-                            <div className="space-y-2">
+                                </div>
+                                <div className="space-y-2">
                                 <Label htmlFor="signup-password">Password</Label>
                                 <Input
                                     id="signup-password"
@@ -228,24 +247,29 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                                 {signupErrors.password && (
                                     <p className="text-xs text-red-400">{signupErrors.password.message}</p>
                                 )}
-                                <p className="text-[10px] text-slate-500">Must be at least 8 characters long</p>
-                            </div>
-
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-md text-sm flex items-center gap-2">
-                                    <AlertCircle className="w-4 h-4" />
-                                    {error}
                                 </div>
-                            )}
-
-                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
-                            </Button>
+                                <div className="h-6 flex items-center">
+                                    <p className="text-[10px] text-slate-500">Must be at least 8 characters long</p>
+                                </div>
+                            </div>
+                            <div className="mt-auto space-y-2 pt-1">
+                                <div className="min-h-[36px]">
+                                    {error && (
+                                        <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-md text-sm flex items-center gap-2">
+                                            <AlertCircle className="w-4 h-4" />
+                                            {error}
+                                        </div>
+                                    )}
+                                </div>
+                                <Button type="submit" size="lg" className="w-full h-10 bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
+                                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
+                                </Button>
+                            </div>
                         </form>
                     </TabsContent>
                 </Tabs>
 
-                <div className="relative my-4">
+                <div className="relative my-2">
                     <div className="absolute inset-0 flex items-center">
                         <span className="w-full border-t border-slate-800" />
                     </div>
@@ -254,11 +278,17 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                     </div>
                 </div>
 
-                <Button variant="outline" className="w-full border-slate-800 hover:bg-slate-900" onClick={handleGoogleLogin}>
+                <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full h-10 border-slate-800 hover:bg-slate-900"
+                    onClick={handleGoogleLogin}
+                    disabled={isLoading}
+                >
                     <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
                         <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
                     </svg>
-                    Google
+                    Continue with Google
                 </Button>
             </DialogContent>
         </Dialog>

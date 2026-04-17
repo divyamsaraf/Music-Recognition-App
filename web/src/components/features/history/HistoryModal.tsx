@@ -1,15 +1,15 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { createBrowserSupabaseClient } from "@/lib/supabase/client"
 import { useEffect, useState, useMemo, useRef } from "react"
 import { formatDistanceToNow } from "date-fns"
-import { Music2, Trash2, ExternalLink, Search, Filter, ArrowUpDown, Calendar, Clock } from "lucide-react"
+import { Music2, Search, Filter, ArrowUpDown, Calendar, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useRecognitionStore } from "@/store/useRecognitionStore"
 import { Badge } from "@/components/ui/badge"
+import { RemoteAlbumImage } from "@/components/ui/remote-album-image"
 
 interface HistoryModalProps {
     open: boolean
@@ -66,10 +66,15 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
         // Search
         if (searchQuery) {
             const query = searchQuery.toLowerCase()
-            result = result.filter(item =>
-                (item.title || '').toLowerCase().includes(query) ||
-                (item.artists?.[0]?.name || '').toLowerCase().includes(query)
-            )
+            result = result.filter((item) => {
+                const artistBlob = (item.artists || []).map((a) => a.name).join(' ').toLowerCase()
+                const albumName = (item.album?.name || '').toLowerCase()
+                return (
+                    (item.title || '').toLowerCase().includes(query) ||
+                    artistBlob.includes(query) ||
+                    albumName.includes(query)
+                )
+            })
         }
 
         // Sort
@@ -92,7 +97,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="w-[90vw] max-w-[650px] max-h-[85vh] bg-slate-950/90 backdrop-blur-xl border-white/10 text-white shadow-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col">
+            <DialogContent className="w-[94vw] max-w-[820px] max-h-[85vh] bg-slate-950/90 backdrop-blur-xl border-white/10 text-white shadow-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col">
 
                 {/* Header */}
                 <div className="p-4 md:p-6 border-b border-white/5 space-y-4 bg-black/20 flex-shrink-0 z-10">
@@ -126,7 +131,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                         </div>
                         <div className="flex gap-2">
                             <Select value={sortBy} onValueChange={(v: string) => setSortBy(v as SortOption)}>
-                                <SelectTrigger className="flex-1 sm:w-[110px] h-9 bg-black/20 border-white/10 text-xs">
+                                <SelectTrigger className="flex-1 sm:w-[130px] h-9 bg-black/20 border-white/10 text-xs">
                                     <ArrowUpDown className="w-3 h-3 mr-2" />
                                     <SelectValue placeholder="Sort" />
                                 </SelectTrigger>
@@ -137,7 +142,7 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                 </SelectContent>
                             </Select>
                             <Select value={filterBy} onValueChange={(v: string) => setFilterBy(v as FilterOption)}>
-                                <SelectTrigger className="flex-1 sm:w-[110px] h-9 bg-black/20 border-white/10 text-xs">
+                                <SelectTrigger className="flex-1 sm:w-[150px] h-9 bg-black/20 border-white/10 text-xs">
                                     <Filter className="w-3 h-3 mr-2" />
                                     <SelectValue placeholder="Filter" />
                                 </SelectTrigger>
@@ -152,8 +157,8 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                 </div>
 
                 {/* Content */}
-                <ScrollArea className="flex-1 min-h-0 bg-[#0A0A0A] w-full [&>[data-radix-scroll-area-viewport]]:!block">
-                    <div className="p-4 space-y-3 w-full">
+                <ScrollArea className="flex-1 min-h-0 bg-[#0A0A0A] w-full overflow-x-hidden [&>[data-radix-scroll-area-viewport]]:!block">
+                    <div className="p-4 pr-5 sm:pr-4 space-y-3 w-full max-w-full overflow-x-hidden box-border">
                         {filteredAndSortedHistory.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
                                 <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
@@ -169,12 +174,22 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                 </div>
                             </div>
                         ) : (
-                            filteredAndSortedHistory.map((item) => (
+                            filteredAndSortedHistory.map((item) => {
+                                const artistLine = (item.artists || []).map((a) => a.name).filter(Boolean).join(', ') || 'Unknown artist'
+                                const releaseStr = item.release_date || item.album?.release_date
+                                const genreStr =
+                                    Array.isArray(item.genres) && item.genres.length > 0
+                                        ? item.genres
+                                              .map((g) => (typeof g === 'string' ? g : g.name))
+                                              .filter(Boolean)
+                                              .join(', ')
+                                        : ''
+                                return (
                                 <div
                                     key={item.id}
-                                    className="group relative flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all w-full max-w-full box-border sm:h-[100px]"
+                                    className="group relative flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 transition-all w-full max-w-full min-w-0 box-border overflow-x-clip"
                                 >
-                                    <div className="flex items-start gap-3 sm:gap-4 w-full h-full min-w-0">
+                                    <div className="flex items-start gap-3 sm:gap-4 w-full min-w-0 max-w-full">
                                         {/* Album Art */}
                                         <div className="relative w-10 h-10 sm:w-[74px] sm:h-[74px] rounded-lg bg-slate-800 overflow-hidden shadow-lg flex-shrink-0">
                                             {(() => {
@@ -190,14 +205,16 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                                     (item.external_metadata?.deezer?.album?.id ? `https://api.deezer.com/album/${item.external_metadata.deezer.album.id}/image` : null)
 
                                                 return imageUrl ? (
-                                                    <img
+                                                    <RemoteAlbumImage
                                                         src={imageUrl}
-                                                        alt={item.title}
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            e.currentTarget.style.display = 'none'
-                                                            e.currentTarget.parentElement?.classList.add('fallback-active')
-                                                        }}
+                                                        alt={item.title ?? 'Album art'}
+                                                        sizes="(max-width: 640px) 40px, 74px"
+                                                        className="object-cover"
+                                                        fallback={
+                                                            <div className="flex h-full w-full items-center justify-center bg-slate-800">
+                                                                <Music2 className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
+                                                            </div>
+                                                        }
                                                     />
                                                 ) : (
                                                     <div className="flex items-center justify-center h-full w-full">
@@ -205,50 +222,76 @@ export function HistoryModal({ open, onOpenChange }: HistoryModalProps) {
                                                     </div>
                                                 )
                                             })()}
-
-                                            {/* Fallback Element */}
-                                            <div className="hidden fallback-active:flex absolute inset-0 items-center justify-center bg-slate-800">
-                                                <Music2 className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
-                                            </div>
                                         </div>
 
                                         {/* Info */}
-                                        <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
-                                            <div className="space-y-0.5">
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <h4 className="font-semibold text-white truncate text-sm sm:text-base leading-tight min-w-0 flex-1" title={item.title}>
-                                                        {item.title}
-                                                    </h4>
-                                                    <span className="text-[10px] text-slate-500 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {formatDistanceToNow(item.timestamp, { addSuffix: true })}
-                                                    </span>
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-blue-400 font-medium truncate leading-tight" title={item.artists?.[0]?.name}>
-                                                    {item.artists?.[0]?.name}
+                                        <div className="flex-1 min-w-0 max-w-full flex flex-col gap-2">
+                                            <div className="space-y-1 min-w-0 max-w-full">
+                                                <h4 className="font-semibold text-white text-sm sm:text-base leading-snug min-w-0 break-words [overflow-wrap:anywhere] hyphens-auto">
+                                                    {item.title}
+                                                </h4>
+                                                <p className="text-xs sm:text-sm text-blue-400 font-medium leading-snug min-w-0 break-words [overflow-wrap:anywhere] hyphens-auto">
+                                                    {artistLine}
                                                 </p>
-                                                <p className="text-[10px] sm:text-xs text-slate-500 truncate leading-tight" title={item.album?.name}>
-                                                    {item.album?.name}
-                                                </p>
+                                                {item.album?.name ? (
+                                                    <p className="text-[10px] sm:text-xs text-slate-400 leading-snug min-w-0 break-words [overflow-wrap:anywhere]">
+                                                        <span className="text-slate-500">Album · </span>
+                                                        {item.album.name}
+                                                    </p>
+                                                ) : null}
+                                                {releaseStr ? (
+                                                    <p className="text-[10px] sm:text-xs text-slate-500 leading-snug break-words [overflow-wrap:anywhere]">
+                                                        Released · {releaseStr}
+                                                    </p>
+                                                ) : null}
+                                                {genreStr ? (
+                                                    <p className="text-[10px] sm:text-xs text-slate-500 leading-snug break-words [overflow-wrap:anywhere]">
+                                                        Genre · {genreStr}
+                                                    </p>
+                                                ) : null}
+                                                {item.label ? (
+                                                    <p className="text-[10px] sm:text-xs text-slate-500 leading-snug break-words [overflow-wrap:anywhere]">
+                                                        Label · {item.label}
+                                                    </p>
+                                                ) : null}
                                             </div>
 
-                                            {/* Actions */}
-                                            <div className="flex items-center gap-2 mt-auto pt-1">
-                                                {item.external_metadata?.spotify && (
-                                                    <Badge variant="secondary" className="bg-[#1DB954]/10 text-[#1DB954] hover:bg-[#1DB954]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 sm:h-5 px-2" onClick={(e) => { e.stopPropagation(); window.open(`https://open.spotify.com/track/${item.external_metadata?.spotify?.track.id}`, '_blank'); }}>
-                                                        Spotify
-                                                    </Badge>
-                                                )}
-                                                {item.external_metadata?.youtube && (
-                                                    <Badge variant="secondary" className="bg-[#FF0000]/10 text-[#FF0000] hover:bg-[#FF0000]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 sm:h-5 px-2" onClick={(e) => { e.stopPropagation(); window.open(`https://www.youtube.com/watch?v=${item.external_metadata?.youtube?.vid}`, '_blank'); }}>
-                                                        YouTube
-                                                    </Badge>
-                                                )}
+                                            {/* Links + time: stable layout — no horizontal overflow */}
+                                            <div className="flex w-full min-w-0 max-w-full flex-col gap-2 pt-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                                <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-1.5 content-start">
+                                                    {item.external_metadata?.spotify?.track?.id && (
+                                                        <Badge variant="secondary" className="bg-[#1DB954]/10 text-[#1DB954] hover:bg-[#1DB954]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 px-2" onClick={(e) => { e.stopPropagation(); const id = item.external_metadata?.spotify?.track?.id; if (id) window.open(`https://open.spotify.com/track/${id}`, '_blank'); }}>
+                                                            Spotify
+                                                        </Badge>
+                                                    )}
+                                                    {item.external_metadata?.youtube?.vid && (
+                                                        <Badge variant="secondary" className="bg-[#FF0000]/10 text-[#FF0000] hover:bg-[#FF0000]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 px-2" onClick={(e) => { e.stopPropagation(); const vid = item.external_metadata?.youtube?.vid; if (vid) window.open(`https://www.youtube.com/watch?v=${vid}`, '_blank'); }}>
+                                                            YouTube
+                                                        </Badge>
+                                                    )}
+                                                    {item.external_metadata?.applemusic?.track?.id && (
+                                                        <Badge variant="secondary" className="bg-[#FA243C]/10 text-[#FA243C] hover:bg-[#FA243C]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 px-2" onClick={(e) => { e.stopPropagation(); const id = item.external_metadata?.applemusic?.track?.id; if (id) window.open(`https://music.apple.com/us/album/${id}`, '_blank'); }}>
+                                                            Apple Music
+                                                        </Badge>
+                                                    )}
+                                                    {item.external_metadata?.deezer?.track?.id && (
+                                                        <Badge variant="secondary" className="bg-[#00C7F2]/10 text-[#00C7F2] hover:bg-[#00C7F2]/20 border-0 gap-1 text-[10px] cursor-pointer h-5 px-2" onClick={(e) => { e.stopPropagation(); const id = item.external_metadata?.deezer?.track?.id; if (id) window.open(`https://www.deezer.com/track/${id}`, '_blank'); }}>
+                                                            Deezer
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <div className="flex w-full min-w-0 shrink-0 items-start gap-1.5 border-t border-white/10 pt-2 text-[10px] text-slate-500 sm:w-auto sm:max-w-[min(100%,14rem)] sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+                                                    <Calendar className="mt-0.5 h-3 w-3 shrink-0 opacity-80" aria-hidden />
+                                                    <span className="min-w-0 flex-1 leading-snug break-words [overflow-wrap:anywhere]">
+                                                        Recognized {formatDistanceToNow(item.timestamp, { addSuffix: true })}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            ))
+                                )
+                            })
                         )}
                         {/* Loading Indicator */}
                         {isLoadingHistory && (

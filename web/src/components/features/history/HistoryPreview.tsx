@@ -1,8 +1,9 @@
 'use client'
 
-import { Music2, Clock, ArrowRight } from 'lucide-react'
+import { Music2, ArrowRight } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Button } from '@/components/ui/button'
+import { RemoteAlbumImage } from '@/components/ui/remote-album-image'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { HistoryItem } from '@/lib/storage'
 import { motion } from 'framer-motion'
@@ -76,25 +77,22 @@ export function HistoryPreview({ history, onOpenHistory }: HistoryPreviewProps) 
                             >
                                 <div className="relative aspect-square rounded-lg bg-slate-800 mb-4 overflow-hidden">
                                     {imageUrl ? (
-                                        <img
+                                        <RemoteAlbumImage
                                             src={imageUrl}
-                                            alt={item.title}
-                                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                            onError={(e) => {
-                                                e.currentTarget.style.display = 'none'
-                                                e.currentTarget.parentElement?.classList.add('fallback-active')
-                                            }}
+                                            alt={item.title ?? 'Album art'}
+                                            sizes="200px"
+                                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                            fallback={
+                                                <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                                                    <Music2 className="h-10 w-10 text-slate-600" />
+                                                </div>
+                                            }
                                         />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-slate-900">
                                             <Music2 className="h-10 w-10 text-slate-600" />
                                         </div>
                                     )}
-
-                                    {/* Fallback Element */}
-                                    <div className="hidden fallback-active:flex absolute inset-0 items-center justify-center bg-slate-900">
-                                        <Music2 className="h-10 w-10 text-slate-600" />
-                                    </div>
                                 </div>
 
                                 <div className="space-y-1 mb-4">

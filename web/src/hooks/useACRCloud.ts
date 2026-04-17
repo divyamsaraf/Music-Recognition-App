@@ -15,15 +15,8 @@ interface ACRCloudSDK {
 }
 
 interface ACRCloudRecognizer {
-    recognize(audioData: Float32Array, callback: (result: any) => void): void
-    // Some SDKs might have a separate method for fingerprint generation
-    // We will assume a standard recognize flow or a specific gen_fingerprint method if available
-    // For this implementation, we'll try to find a method that returns the fingerprint
-    // or use the recognize method which might handle the upload internally if configured,
-    // BUT our goal is to get the fingerprint to send to OUR server.
-
-    // If the SDK is purely for "Client-Side Fingerprinting" to be sent to a server, 
-    // it usually exposes a function like `create_fingerprint(pcm_data)`.
+    recognize(audioData: Float32Array, callback: (result: unknown) => void): void
+    create_fingerprint?: (audioData: Float32Array, sampleRate: number) => unknown
 }
 
 // Global declaration
@@ -34,13 +27,14 @@ declare global {
 }
 
 interface UseACRCloudProps {
-    onFingerprintGenerated?: (fingerprint: any) => void
+    onFingerprintGenerated?: (fingerprint: unknown) => void
 }
 
-export function useACRCloud({ onFingerprintGenerated }: UseACRCloudProps = {}) {
+export function useACRCloud(props: UseACRCloudProps = {}) {
+    void props.onFingerprintGenerated
     const [isSDKLoaded, setIsSDKLoaded] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const recognizerRef = useRef<any>(null) // Using any to be flexible with the unknown SDK API
+    const recognizerRef = useRef<ACRCloudRecognizer | null>(null)
 
     useEffect(() => {
         const loadSDK = async () => {
@@ -115,17 +109,11 @@ export function useACRCloud({ onFingerprintGenerated }: UseACRCloudProps = {}) {
             return null
         }
 
+        const rec = recognizerRef.current
         return new Promise((resolve, reject) => {
             try {
-                // Speculative API call: result might be the fingerprint object or string
-                // The SDK usually takes PCM data (Float32Array or Int16Array)
-
-                // Some SDKs use `result = recognizer.fingerprint(audioData)`
-                // Others use a callback.
-
-                // Let's assume a method `create_fingerprint` exists based on common WASM patterns
-                if (typeof recognizerRef.current.create_fingerprint === 'function') {
-                    const fingerprint = recognizerRef.current.create_fingerprint(audioData, sampleRate)
+                if (typeof rec.create_fingerprint === 'function') {
+                    const fingerprint = rec.create_fingerprint(audioData, sampleRate)
                     resolve(fingerprint)
                 } else {
                     console.warn('create_fingerprint method not found on recognizer')

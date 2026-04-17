@@ -1,25 +1,35 @@
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { ArrowLeft, Music, ExternalLink } from 'lucide-react'
+import { RemoteAlbumImage } from '@/components/ui/remote-album-image'
+import { ArrowLeft, Music as MusicIcon, ExternalLink } from 'lucide-react'
 import { motion } from 'framer-motion'
+import type { Music } from '@/store/useRecognitionStore'
 
-interface ResultCardProps {
-    result: any
-    onReset: () => void
-    onBack?: () => void
+interface RecognitionResult {
+    metadata?: { music?: Music[] }
 }
 
-export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
+interface ResultCardProps {
+    result: RecognitionResult
+    onReset: () => void
+}
+
+export function ResultCard({ result, onReset }: ResultCardProps) {
     const music = result?.metadata?.music?.[0]
 
     if (!music) return null
 
     const title = music.title
-    const artist = music.artists?.map((a: any) => a.name).join(', ')
+    const artist = music.artists?.map((a) => a.name).join(', ')
     const album = music.album?.name
     const releaseDate = music.release_date || music.album?.release_date
-    const label = music.label || music.album?.label
-    const genres = music.genres?.map((g: any) => typeof g === 'string' ? g : g.name).join(', ')
+    const label =
+        music.label ||
+        (music.album as { label?: string } | undefined)?.label
+    const genres = music.genres
+        ?.map((g) => (typeof g === 'string' ? g : g.name))
+        .filter(Boolean)
+        .join(', ')
 
     // Exhaustive Image Logic
     const imageUrl =
@@ -63,7 +73,7 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
             >
                 <Card className="relative overflow-hidden border-none shadow-2xl bg-[#0f172a]/80 backdrop-blur-xl text-white">
                     {/* Close/Scan New Button - Top Right */}
-                    <div className="absolute top-4 right-4 z-20">
+                    <div className="absolute top-4 right-4 z-20 hidden md:block">
                         <Button
                             variant="ghost"
                             className="text-white/70 hover:text-white hover:bg-white/10 rounded-full gap-2 pl-2 pr-4"
@@ -82,27 +92,25 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
                         <div className="w-full md:w-[400px] p-6 md:p-8 flex-shrink-0 flex flex-col items-center bg-black/20 border-b md:border-b-0 md:border-r border-white/5">
                             <div className="relative w-full max-w-[340px] aspect-square rounded-xl overflow-hidden shadow-2xl group mb-6">
                                 {imageUrl ? (
-                                    <img
+                                    <RemoteAlbumImage
                                         src={imageUrl}
-                                        alt={title}
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                        onError={(e) => {
-                                            // Fallback if image fails to load
-                                            e.currentTarget.style.display = 'none'
-                                            e.currentTarget.parentElement?.classList.add('fallback-active')
-                                        }}
+                                        alt={title ?? 'Album art'}
+                                        sizes="(max-width: 768px) 85vw, 340px"
+                                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                        priority
+                                        fallback={
+                                            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-indigo-900/50 to-slate-900/50 backdrop-blur-sm border border-white/10">
+                                                <MusicIcon className="h-20 w-20 text-white/20 mb-4" />
+                                                <span className="text-xs text-white/30 font-medium uppercase tracking-widest">No Cover</span>
+                                            </div>
+                                        }
                                     />
                                 ) : (
                                     <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-900/50 to-slate-900/50 backdrop-blur-sm border border-white/10">
-                                        <Music className="h-20 w-20 text-white/20 mb-4" />
+                                        <MusicIcon className="h-20 w-20 text-white/20 mb-4" />
                                         <span className="text-xs text-white/30 font-medium uppercase tracking-widest">No Cover</span>
                                     </div>
                                 )}
-
-                                {/* Fallback Element (Hidden by default, shown via JS if img fails) */}
-                                <div className="hidden fallback-active:flex absolute inset-0 flex-col items-center justify-center bg-gradient-to-br from-indigo-900/50 to-slate-900/50 backdrop-blur-sm">
-                                    <Music className="h-20 w-20 text-white/20 mb-4" />
-                                </div>
                             </div>
 
                             {/* Listen Links */}
@@ -146,11 +154,11 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
                         <div className="flex-1 p-6 md:p-10 flex flex-col">
                             <div className="space-y-6">
                                 {/* Header Info */}
-                                <div className="space-y-2 pr-12"> {/* Padding for close button */}
-                                    <h1 className="text-3xl md:text-5xl font-bold leading-tight" title={title}>
+                                <div className="space-y-2 md:pr-12"> {/* Padding for close button */}
+                                    <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight break-words" title={title}>
                                         {title}
                                     </h1>
-                                    <p className="text-xl md:text-3xl text-blue-400 font-medium">
+                                    <p className="text-lg sm:text-xl md:text-3xl text-blue-400 font-medium break-words">
                                         {artist}
                                     </p>
                                     {album && title !== album && (
@@ -187,7 +195,7 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
                                     <div className="py-6 border-t border-white/10">
                                         <h3 className="text-sm uppercase tracking-wider text-slate-500 font-semibold mb-4">Credits</h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {contributors.slice(0, 6).map((c: any, i: number) => (
+                                            {contributors.slice(0, 6).map((c, i: number) => (
                                                 <div key={i} className="flex flex-col">
                                                     <span className="text-slate-200 font-medium">{c.name}</span>
                                                     <span className="text-xs text-slate-500">{c.roles?.join(', ') || 'Contributor'}</span>
@@ -207,6 +215,9 @@ export function ResultCard({ result, onReset, onBack }: ResultCardProps) {
                                         Scan Another Song
                                     </Button>
                                 </div>
+                                <p className="text-xs text-slate-400">
+                                    Not the right song? Scan again and move closer to the music source.
+                                </p>
                             </div>
                         </div>
                     </div>

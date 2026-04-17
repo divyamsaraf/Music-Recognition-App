@@ -59,7 +59,7 @@ export default function HistoryPage() {
         } finally {
             setLoading(false)
         }
-    }, [supabase, router])
+    }, [supabase])
 
     useEffect(() => {
         if (!supabase) return
@@ -110,15 +110,15 @@ export default function HistoryPage() {
     return (
         <main className="min-h-screen p-4 md:p-8 bg-background">
             <div className="max-w-4xl mx-auto space-y-8">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                         <Button variant="ghost" onClick={() => router.push('/')}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back
                         </Button>
-                        <h1 className="text-3xl font-bold">Recognition History</h1>
+                        <h1 className="text-2xl sm:text-3xl font-bold truncate">Recognition History</h1>
                     </div>
                     {history.length > 0 && (
-                        <Button variant="destructive" size="sm" onClick={clearHistory}>
+                        <Button variant="destructive" size="sm" onClick={clearHistory} className="self-start sm:self-auto">
                             <Trash2 className="mr-2 h-4 w-4" /> Clear All
                         </Button>
                     )}
@@ -132,17 +132,17 @@ export default function HistoryPage() {
                     ) : (
                         history.map((item) => (
                             <Card key={item.id} className="overflow-hidden">
-                                <CardContent className="p-6 flex items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <h3 className="font-semibold text-lg">{item.title}</h3>
-                                        <p className="text-muted-foreground">{item.artist}</p>
+                                <CardContent className="p-4 sm:p-6 flex items-start sm:items-center justify-between gap-4">
+                                    <div className="space-y-1 min-w-0 flex-1">
+                                        <h3 className="font-semibold text-base sm:text-lg truncate">{item.title}</h3>
+                                        <p className="text-muted-foreground truncate">{item.artist}</p>
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
-                                            <Calendar className="h-3 w-3" />
+                                            <Calendar className="h-3 w-3 shrink-0" />
                                             {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 shrink-0">
                                         {item.spotify_id && (
                                             <Button size="icon" variant="outline" onClick={() => window.open(`https://open.spotify.com/track/${item.spotify_id}`, '_blank')}>
                                                 <ExternalLink className="h-4 w-4 text-[#1DB954]" />

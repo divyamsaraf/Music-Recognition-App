@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { PointerEventsCheckLevel } from '@testing-library/user-event'
 import { AuthModal } from './AuthModal'
 
 // Mock Supabase client
@@ -41,15 +41,14 @@ describe('AuthModal', () => {
         expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
     })
 
-    it.skip('should validate email format', async () => {
+    it('should validate email format', async () => {
         render(<AuthModal open={true} onOpenChange={() => { }} />)
 
-        // Target the email input specifically for login
-        const emailInput = screen.getByLabelText(/email/i)
+        const dialog = screen.getByRole('dialog')
+        const emailInput = dialog.querySelector('#login-email')!
         fireEvent.change(emailInput, { target: { value: 'invalid-email' } })
-
-        const submitBtn = screen.getByRole('button', { name: /sign in/i })
-        fireEvent.click(submitBtn)
+        const loginForm = emailInput.closest('form')!
+        fireEvent.submit(loginForm)
 
         await waitFor(() => {
             expect(screen.getByText(/invalid email address/i)).toBeInTheDocument()
@@ -57,16 +56,19 @@ describe('AuthModal', () => {
     })
 
     it('should validate password length', async () => {
+        const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never })
         render(<AuthModal open={true} onOpenChange={() => { }} />)
 
-        const passwordInput = screen.getByLabelText(/password/i)
-        fireEvent.change(passwordInput, { target: { value: 'short' } })
+        await user.click(screen.getByRole('tab', { name: /sign up/i }))
 
-        const submitBtn = screen.getByRole('button', { name: /sign in/i })
-        fireEvent.click(submitBtn)
+        const dialog = screen.getByRole('dialog')
+        fireEvent.change(dialog.querySelector('#signup-email')!, { target: { value: 'user@example.com' } })
+        fireEvent.change(dialog.querySelector('#signup-password')!, { target: { value: 'short' } })
+        const signupForm = dialog.querySelector('#signup-email')!.closest('form')!
+        fireEvent.submit(signupForm)
 
         await waitFor(() => {
-            expect(screen.getByText(/password must be at least 8 characters/i)).toBeInTheDocument()
+            expect(screen.getByText('Password must be at least 8 characters')).toBeInTheDocument()
         })
     })
 })
